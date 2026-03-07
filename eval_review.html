@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "sprout-advisor", "runs": [{"id": "eval-0-anti-inflammatory-with_skill", "prompt": "I've been dealing with a lot of joint inflammation lately and my doctor mentioned diet could help. A friend told me about growing your own sprouts or microgreens at home? I'm a total beginner with no equipment yet. I have a small kitchen with decent light from a south-facing window. Budget is around $30-40 to start. What should I grow?", "eval_id": 0, "outputs": [{"name": "response.md", "type": "text", "content": "# Your Anti-Inflammatory Sprout & Microgreens Growing Plan\n\nHello! I'm so glad you're exploring growing your own greens for joint health\u2014this is a wonderful step toward managing inflammation through nutrition. Your south-facing window and modest budget are actually perfect for getting started. Let me walk you through a complete, personalized plan.\n\n---\n\n## Stage 1: Understanding Your Goals\n\nYou've mentioned dealing with joint inflammation and that your doctor highlighted diet's potential role. That's exactly the kind of targeted health goal that microgreens and sprouts can powerfully support! Since you're a beginner with a tight budget ($30-40) and excellent natural light, we'll focus on varieties that are:\n\n1. **High in anti-inflammatory compounds** (especially sulforaphane, anthocyanins, and quercetin)\n2. **Fast-growing** (to maximize your early wins and build confidence)\n3. **Budget-friendly** (minimal equipment and inexpensive seeds)\n4. **Beginner-proof** (forgiving of small mistakes)\n\nYou've got all the right conditions to succeed. Let's move forward!\n\n---\n\n## Stage 2: Your Top 3 Anti-Inflammatory Varieties\n\nBased on your health goals and growing situation, here are the three varieties I recommend:\n\n### \ud83c\udf31 #1: Broccoli Sprouts\n**Why it's perfect for you:** Broccoli sprouts are the gold standard for anti-inflammatory support. They contain sulforaphane, a compound that's been extensively studied for its ability to reduce joint inflammation and support the body's natural detox pathways. 3-day-old broccoli sprouts contain 10-100x more sulforaphane than mature broccoli\u2014you get maximum medicinal benefit from minimal plant material.\n\n**Key nutrients:** Sulforaphane (anti-inflammatory & detox), Vitamin C, Vitamin E, beta-carotene\n\n**Difficulty:** Beginner (jar sprouting is the easiest method)\n\n**Time to harvest:** 3-4 days for peak sulforaphane content\n\n**Form:** Sprout (jar method\u2014no soil needed!)\n\n---\n\n### \ud83c\udf31 #2: Red Cabbage Microgreens\n**Why it's perfect for you:** Red cabbage microgreens are a nutritional powerhouse for inflammation. Their striking purple-red color comes from anthocyanins\u2014potent polyphenols that research shows can significantly reduce inflammatory markers. They're also quick to grow and utterly stunning on your plate, which makes you want to eat them!\n\n**Key nutrients:** Anthocyanins (6x more than mature cabbage), Vitamin C, Vitamin E, antioxidants\n\n**Difficulty:** Beginner (soil-based tray growing, very reliable)\n\n**Time to harvest:** 8-12 days\n\n**Form:** Microgreen\n\n---\n\n### \ud83c\udf31 #3: Arugula Microgreens\n**Why it's perfect for you:** Arugula is an often-overlooked anti-inflammatory superstar. It contains glucosinolates (compounds that convert to powerful antioxidants) and quercetin, a well-studied flavonoid that acts as a natural anti-inflammatory. It's also faster and easier than many microgreens, with a peppery kick that makes salads and soups more exciting.\n\n**Key nutrients:** Glucosinolates, Vitamin K, quercetin (anti-inflammatory flavonoid)\n\n**Difficulty:** Beginner (no soaking required; very fast)\n\n**Time to harvest:** 7-10 days\n\n**Form:** Microgreen\n\n---\n\n### Tradeoff Note\nBroccoli sprouts are your most medicinal option for inflammation (especially if you're consistent about eating them), but they require a jar and regular rinsing. Red cabbage and arugula microgreens are slightly less concentrated in single compounds, but offer broader nutritional support and beautiful visual appeal. I recommend starting with **broccoli sprouts** (simplest equipment), then adding **red cabbage microgreens** once you're confident (best anti-inflammatory appearance + versatility).\n\n---\n\n## Stage 3: Finding Seeds and Equipment\n\nI've searched for current 2026 vendors and pricing. Here's what you can buy:\n\n### Seeds: Your Best Options\n\n#### BROCCOLI SPROUTS\n\n| | **Option A: Budget-Friendly Bulk** | **Option B: Faster Shipping** |\n|---|---|---|\n| **Vendor** | Organo Republic | True Leaf Market |\n| **Price** | $17.99 (1 lb bulk) | ~$8-12 (standard packet) |\n| **Quantity** | 130,000+ seeds (30+ trays worth) | 1-2 oz packet |\n| **Cost per batch** | $0.60 per jar batch | $3-4 per jar batch |\n| **Shipping** | Free on orders over $50 or ~$5-8 | 1-3 days |\n| **Link** | [Organo Republic Broccoli Seeds](https://organorepublic.com/products/broccoli-sprouting-microgreens-seeds-non-gmo-heirloom-sprout-seeds-kit-in-bulk-1lb-resealable-bag-for-planting-growing-microgreens-in-soil-coconut-coir-garden-aerogarden-hydroponic-system) | [True Leaf Market Broccoli](https://trueleafmarket.com/products/broccoli-waltham-29-microgreens-seeds) |\n\n#### RED CABBAGE MICROGREENS\n\n| | **Option A: Budget-Friendly Bulk** | **Option B: Standard Packet** |\n|---|---|---|\n| **Vendor** | Organo Republic | Osborne Seed |\n| **Price** | Varies (bulk available) | $7.10 (4 oz) |\n| **Shipping** | Free over $50 | Standard |\n| **Link** | [Organo Republic Red Cabbage](https://organorepublic.com/collections/broccoli-microgreens) | [Osborne Seed Red Cabbage](https://www.osborneseed.com/products/red-acre-cabbage-untreated-microgreen-seeds) |\n\n#### ARUGULA MICROGREENS\n\n| | **Option A: Budget Bulk** | **Option B: Moderate Size** |\n|---|---|---|\n| **Vendor** | Organo Republic | Eden Brothers |\n| **Price** | $17.99 (1 lb with 220,000+ seeds) | $4.99-$6.99 |\n| **Quantity** | 30+ trays | Standard packet |\n| **Cost per tray** | $0.60 | ~$1-2 per tray |\n| **Link** | [Organo Republic Arugula](https://organorepublic.com/products/arugula-sprouting-microgreens-seeds-non-gmo-heirloom-sprout-seeds-kit) | [Eden Brothers Arugula](https://www.edenbrothers.com/collections/arugula_seeds) |\n\n---\n\n### Equipment: Two Budget Paths for Your $30-40\n\nSince you have a south-facing window with decent light, you can skip the grow light. Here are two realistic paths:\n\n#### **PATH A: Absolute Minimum (~$20-25)**\nPerfect if you start with broccoli sprouts only:\n\n- **Mason jar (1-quart)** \u2014 $3-5 (you may already have one)\n- **Cheesecloth or fine mesh sprouting lid** \u2014 $2-5\n- **Spray bottle** \u2014 $2-4 (dollar store is fine)\n- **Broccoli seeds packet** \u2014 $8-12\n- **TOTAL:** $15-26\n\n*This setup lets you grow broccoli sprouts indefinitely with almost zero ongoing costs.*\n\n---\n\n#### **PATH B: Beginner Tray Setup (~$30-40, recommended)**\nBest for growing both sprouts AND microgreens:\n\n| Item | Source | Cost |\n|---|---|---|\n| **Shallow food containers (2)** | Dollar store or repurposed | $2-4 |\n| **Potting soil or coco coir** | Home Depot/Lowe's (small bag) | $6-12 |\n| **Spray bottle** | Dollar store | $2-3 |\n| **Seeds bundle** (broccoli + red cabbage) | Organo Republic or True Leaf | $8-18 |\n| **Cheesecloth or small jar** | Dollar store | $1-2 |\n| **TOTAL** | | $19-39 |\n\n**How to make trays from dollar store containers:**\n1. Take two clear plastic food storage containers (the kind that stack)\n2. Use a hot nail or drill to make 8-10 drainage holes in the bottom of ONE container\n3. Stack the holed container inside the solid one (the solid one catches water)\n4. Fill the top tray with 1-1.5 inches of moistened soil\n\nThis is what commercial growers call a \"flood tray\" setup and it works beautifully for microgreens.\n\n---\n\n### Why This Budget Works\n\nYour $30-40 budget is perfect for **starting both sprouts and microgreens**. Here's why:\n\n- **Seeds are dirt cheap in bulk** ($0.60 per growing cycle for broccoli from Organo Republic)\n- **You don't need a grow light** (your south-facing window is ideal)\n- **DIY containers work as well as $50 kits** (they really do!)\n- **Soil or coco coir lasts for weeks** (one small bag covers 5+ trays)\n\nAfter your initial investment, ongoing costs are roughly **$1-2 per week** just for seeds\u2014far cheaper than buying microgreens at the store.\n\n---\n\n## Stage 4: Step-by-Step Growing Instructions\n\nNow the fun part! Here are detailed day-by-day timelines for each variety.\n\n---\n\n## \ud83e\udd66 BROCCOLI SPROUTS (Jar Method)\n\n**Timeline: 3-4 days to peak anti-inflammatory potency**\n\nThis is your simplest, fastest option. No soil, minimal equipment, maximum medicinal benefit.\n\n### Day-by-Day Timeline\n\n```\nDAY 0 (Evening)\n\u2192 Measure 2 tablespoons of broccoli seeds into your mason jar\n\u2192 Rinse thoroughly under cool water\n\u2192 Fill jar with 1 cup of filtered or room-temperature water\n\u2192 Soak for 8-12 hours (overnight is fine)\n\nDAY 1 (Morning)\n\u2192 Drain water completely (tip jar sideways into sink)\n\u2192 Rinse seeds again under cool water and drain thoroughly\n\u2192 Place jar at 45-degree angle in a bowl (allows air circulation AND drainage)\n\u2192 Keep in indirect light or dark area (sprouts don't need light yet)\n\u2192 Rinse and drain again in the evening (total: 2x per day)\n\nDAY 2\n\u2192 You should see tiny white tails emerging from seeds\n\u2192 Continue rinsing and draining 2x daily (morning + evening)\n\u2192 Keep jar angled in bowl in warm spot (65-75\u00b0F is ideal)\n\nDAY 3\n\u2192 Sprouts should be 0.5-1 inch long with visible white tails\n\u2192 This is YOUR HARVEST WINDOW for maximum sulforaphane!\n\u2192 Optionally: expose to indirect light for 2-4 hours to develop some chlorophyll (green color)\n\u2192 Rinse one final time, drain well\n\nDAY 4 (Optional extension)\n\u2192 If you prefer slightly longer sprouts (1-1.5 inches), you can wait until tomorrow\n\u2192 Be aware: past 4 days, sulforaphane content may decline\n```\n\n### Setup Instructions\n- **Seed amount:** 2 tablespoons per jar yields 1-2 cups of finished sprouts\n- **Jar size:** Any mason jar (1-quart is standard)\n- **Sprouting lid:** Use either a sprouting jar lid with fine mesh OR layer of cheesecloth secured with rubber band\n- **Water:** Filtered water is ideal but tap water works (use room temperature)\n\n### Daily Care\n- **Rinsing:** 2x per day (morning and evening) is essential to prevent bacteria and mold\n- **Drainage:** Always drain completely after rinsing\u2014excess water causes rot\n- **Airflow:** The 45-degree angle in a bowl is important for both air exchange and drainage\n- **Temperature:** 65-75\u00b0F (18-24\u00b0C) is ideal; warmth speeds sprouting\n- **Light:** Not needed during growth; optional light on day 3 for slight greening\n\n### Harvest & Storage\n- **When ready:** Tails are \u00bd\u20131 inch long; hulls may still be attached (normal and fine)\n- **How to harvest:** Simply rinse and eat directly from jar, or transfer to container\n- **Drying:** Pat sprouts gently with paper towel to remove excess moisture\n- **Storage:** Refrigerate in jar with loose lid; use within 5-7 days\n- **How to eat:** Add to salads, sandwiches, soups, or eat by the handful for maximum anti-inflammatory impact\n\n### Troubleshooting\n- **Mold appears:** Increase rinsing frequency to 3x daily, ensure jar is angled for complete drainage\n- **Slow germination:** Try warmer location (closer to 75\u00b0F); check that seeds are fresh\n- **Too many hulls:** This is fine\u2014you can rinse gently to remove some, or just eat them (they're nutritious)\n\n---\n\n## \ud83d\udd34 RED CABBAGE MICROGREENS (Tray Method)\n\n**Timeline: 8-12 days to vibrant, anti-inflammatory harvest**\n\nThese are stunningly beautiful and pack a real punch for inflammation. Slightly more involved than sprouts, but still very beginner-friendly.\n\n### Day-by-Day Timeline\n\n```\nDAY 0 (Setup)\n\u2192 Prepare two shallow containers (or use 10x20 tray if you have it)\n\u2192 Fill the tray with drainage holes with 1-1.5 inches of moistened potting soil or coco coir\n\u2192 Press soil gently (not compacted\u2014you want light, airy medium)\n\u2192 Soak red cabbage seeds for 4-6 hours in small bowl\n\u2192 Drain seeds thoroughly\n\u2192 Spread seeds evenly across the tray (about 1 oz per 10x20 tray, or roughly \"single layer dense\")\n\u2192 Mist seeds lightly with spray bottle\u2014soil should be moist but not waterlogged\n\u2192 Cover tray with the solid (non-draining) container or humidity dome\n\nDAY 1-4 (Blackout Phase)\n\u2192 Keep tray COVERED (darkness promotes upward growth and tender stems)\n\u2192 Check soil moisture daily\u2014if top feels dry, mist lightly (be cautious not to overwater)\n\u2192 Temperature: 60-75\u00b0F is ideal\n\u2192 NO LIGHT during this phase\n\nDAY 4-5 (Uncovering)\n\u2192 Remove cover\u2014you should see 1-2 inch tall sprouts with yellow/white stems\n\u2192 Move tray to your south-facing window or bright location\n\u2192 Begin bottom-watering: pour water into the outer tray so roots drink upward (prevents mold)\n\u2192 Water when top inch of soil feels dry (likely once daily)\n\nDAY 5-7 (Greening Phase)\n\u2192 Stems turn green as they're exposed to light\n\u2192 Cotyledons (the first seed leaves) are opening and expanding\n\u2192 Continue bottom-watering once daily\n\u2192 Light: 12-16 hours daily (your south-facing window is perfect)\n\u2192 You'll see the striking red/purple stems developing\n\nDAY 8-12 (HARVEST WINDOW)\n\u2192 Cotyledons are fully open and bright green\n\u2192 Red/purple stems are visible and vibrant\n\u2192 Microgreens are 2-3 inches tall\n\u2192 First true leaves may just be emerging\n\u2192 READY TO HARVEST!\n```\n\n### Setup Instructions\n- **Seed density:** 1 oz per 10x20 tray, or roughly \"single layer dense\" for smaller containers\n- **Soil depth:** 1-1.5 inches is perfect\n- **Soaking:** 4-6 hours softens the seed coat and speeds germination\n- **Misting:** Light\u2014aim for moist soil, not soggy\n- **Covering:** Use another container, humidity dome, or even plastic wrap for the blackout phase\n\n### Daily Care\n- **Light (after day 4):** 12-16 hours daily; your south-facing window is ideal\n- **Watering:** Bottom-water from day 5 onward (pour into outer tray, let soil wick it up)\n- **Temperature:** 60-75\u00b0F; they prefer slightly cool conditions\n- **Airflow:** Once uncovered, ensure some air circulation to prevent mold\n- **Signs of health:** Bright green color, firm stems, no visible mold or slime\n- **Signs of trouble:** Drooping, yellow color, or visible mold = usually from overwatering\n\n### Harvest & Storage\n- **Visual cues:** Cotyledons fully open, vibrant color, 2-3 inches tall\n- **How to cut:** Use clean scissors and cut just above the soil line\n- **Rinsing:** Rinse gently under cool water and pat dry with paper towel\n- **Drying:** Remove excess moisture (this extends storage life)\n- **Storage:** Place in airtight container with a paper towel in the refrigerator; lasts 5-7 days\n- **How to eat:** Perfect in salads, on grain bowls, or even in smoothies for their anti-inflammatory anthocyanins\n\n### Troubleshooting\n- **Mold on soil surface:** Increase airflow, reduce watering (only when truly dry), ensure you're bottom-watering not top-misting\n- **Leggy/stretched growth:** Not enough light after uncovering\u2014move closer to window or uncovered earlier\n- **Seeds not sprouting:** Check water quality (some tap water has too much chlorine) and seed freshness\n- **Roots stuck to plastic:** This is normal\u2014just rinse gently while harvesting\n\n---\n\n## \ud83c\udf31 ARUGULA MICROGREENS (Tray Method)\n\n**Timeline: 7-10 days (fastest of your three options)**\n\nArugula is wonderfully fast, requires no seed soaking, and grows reliably. Perfect for building confidence!\n\n### Day-by-Day Timeline\n\n```\nDAY 0 (Setup)\n\u2192 Prepare shallow tray(s) with 1 inch of moistened growing medium\n\u2192 Press soil gently (not hard)\n\u2192 Spread arugula seeds evenly across tray (about 1 oz per 10x20 tray)\n\u2192 Arugula needs NO soaking\u2014just spread dry seeds directly on moist soil\n\u2192 Mist seeds lightly (they should be in contact with moist soil)\n\u2192 Cover with lid or humidity dome for blackout phase\n\nDAY 1-3 (Blackout Phase)\n\u2192 Keep covered\u2014arugula germinates quickly\n\u2192 Check moisture daily; mist lightly if top feels dry\n\u2192 Temperature: 60-75\u00b0F\n\u2192 You'll see germination by day 2, which is normal!\n\nDAY 3-4 (Uncovering)\n\u2192 Remove cover\u2014sprouts should be 1-2 inches tall\n\u2192 Move tray to your south-facing window\n\u2192 Begin bottom-watering if soil feels dry\n\nDAY 4-6 (Greening Phase)\n\u2192 Stems are turning green as light hits them\n\u2192 Cotyledons are unfurling (opening up)\n\u2192 Water from below once daily or when top inch feels dry\n\u2192 Light: 12-16 hours daily\n\nDAY 7-10 (HARVEST WINDOW)\n\u2192 Cotyledons fully open and bright green\n\u2192 Stems are 2-3 inches tall, sturdy\n\u2192 Slightly peppery aroma when brushed\n\u2192 READY TO HARVEST!\n```\n\n### Setup Instructions\n- **Seed density:** 1 oz per 10x20 tray\n- **Soil depth:** 1 inch is sufficient (arugula has shallow roots)\n- **Soaking:** NOT needed\u2014arugula seeds germinate readily without it\n- **Soil contact:** Make sure seeds are in contact with moist soil\n- **Container:** Shallow trays work best; dollar store containers are fine\n\n### Daily Care\n- **Light:** 12-16 hours daily after uncovering (south-facing window is excellent)\n- **Watering:** Bottom-water from day 3-4 onward (pour into outer tray)\n- **Temperature:** 60-75\u00b0F; arugula is very temperature-forgiving\n- **Speed:** This is your FASTEST option\u2014expect harvest in 7-10 days\n- **Airflow:** Arugula is less prone to mold than some varieties, but good airflow helps\n\n### Harvest & Storage\n- **Visual cues:** Cotyledons open, bright green, 2-3 inches tall\n- **How to cut:** Scissors, cut just above soil line\n- **Rinsing:** Cool water rinse, pat dry\n- **Storage:** Airtight container with paper towel in refrigerator; lasts 5-7 days\n- **How to eat:** The peppery flavor is fantastic in salads, on soups, or with eggs. The glucosinolates and quercetin make it an excellent anti-inflammatory addition to meals\n\n### Troubleshooting\n- **Slow germination:** Arugula usually germinates well; if not, try slightly warmer location\n- **Scattered germination:** Normal\u2014arugula seeds are small and don't all germinate at once\n- **Mold:** Keep soil moist but not waterlogged; ensure some airflow\n\n---\n\n## Your First 2 Weeks: A Starting Schedule\n\nHere's what I recommend for your first two weeks to build momentum and confidence:\n\n### **Week 1:**\n- **Days 1-4:** Grow Broccoli Sprouts in jar (easiest intro; harvest by Day 4)\n- **Day 1:** Set up Red Cabbage Microgreens tray (start blackout phase)\n\n### **Week 2:**\n- **Day 8:** Harvest Red Cabbage Microgreens (they'll be ready 8-12 days after Day 1)\n- **Days 8-11:** Start Arugula Microgreens (quick 7-10 day turnaround)\n- **Days 8-11:** Start a second batch of Broccoli Sprouts in jar\n\n### **Week 3 onward:**\nOnce you see how fast and easy these grow, you can stagger batches so you have something harvesting every 2-3 days. By week 3, you could have fresh anti-inflammatory greens at least 3x per week!\n\n---\n\n## Anti-Inflammatory Eating Tips\n\nOnce you're harvesting, here's how to maximize the anti-inflammatory benefits:\n\n### **Broccoli Sprouts**\n- Eat **raw** to preserve sulforaphane (cooking destroys it)\n- Add to salads, sandwiches, grain bowls, or eat by the handful\n- Aim for 1/2 to 1 cup per day for meaningful anti-inflammatory effect\n- Best if eaten fresh within 1-2 days of harvest\n\n### **Red Cabbage Microgreens**\n- Eat **raw** to preserve anthocyanins\n- The darker the purple, the more antioxidants\u2014eat the whole thing including stems\n- Stunning in salads, on Buddha bowls, or as a colorful salad base\n- Aim for 1/4 to 1/2 cup daily\n\n### **Arugula Microgreens**\n- Eat **raw** (cooking reduces quercetin slightly)\n- The peppery flavor pairs well with milder dishes\n- Use as a salad base, top for soups, or mix with other greens\n- Aim for 1/4 to 1/2 cup daily\n\n### **Synergy Tip**\nCombine all three in a single salad for maximum anti-inflammatory firepower: sulforaphane + anthocyanins + quercetin working together!\n\n---\n\n## Key Success Tips\n\n1. **Start with broccoli sprouts** \u2014 They're foolproof and medicinal. One jar costs $3-4 to start, takes 3 days, and requires zero soil.\n\n2. **Don't overthink watering** \u2014 Sprouts and microgreens actually fail more from overwatering than underwatering. When in doubt, drain excess water.\n\n3. **Use filtered water if you can** \u2014 Chlorine in tap water can inhibit germination, though most tap water is fine.\n\n4. **Your south-facing window is a superpower** \u2014 You don't need a grow light. Direct sunlight is actually better than most grow lights for microgreens.\n\n5. **Keep equipment clean** \u2014 Rinse your jar thoroughly between batches and wipe down trays. Clean equipment prevents 90% of mold problems.\n\n6. **Expect 10-15% seed failure** \u2014 It's totally normal. These percentages are built into commercial calculations, so don't feel bad if every seed doesn't sprout.\n\n7. **Harvest at peak time, not when you \"think\" they're ready** \u2014 Use the visual cues (cotyledon opening, color, height) rather than guessing. They'll tell you when they're ready!\n\n8. **Be patient with your first batch** \u2014 Even if something goes slightly wrong, you're learning. Seeds are cheap; mistakes are tuition.\n\n---\n\n## Your Realistic Timeline & Budget Summary\n\n### Initial Investment\n- **Seeds (starting bundle):** $8-18\n- **Equipment (containers, soil, spray bottle):** $15-25\n- **TOTAL:** $23-43 (within your budget!)\n\n### Ongoing Costs (per cycle)\n- **Broccoli sprouts:** $0.60-1.50 per jar (based on bulk seed investment)\n- **Microgreens (soil reuse):** $0.30-0.50 per tray\n- **Water:** Negligible\n\n### Timeline to First Harvest\n- **Broccoli sprouts:** Ready in 3-4 days\n- **Red cabbage microgreens:** Ready in 8-12 days\n- **Arugula microgreens:** Ready in 7-10 days\n\nYou could be eating homegrown, anti-inflammatory microgreens **within 4 days** if you start with broccoli sprouts today.\n\n---\n\n## Final Words\n\nYou're making a powerful choice to support your joint health through real food. These three varieties\u2014broccoli sprouts, red cabbage, and arugula\u2014are some of the most studied, most potent anti-inflammatory plants you can grow at home. They're also incredibly forgiving for beginners, fast to grow, and fit perfectly within your budget and space.\n\nYour south-facing window and willingness to start simple are exactly the right mindset. Commercial growers spend thousands on equipment and only get better yields\u2014not better nutrition. Your kitchen-window setup will grow just as nutrient-dense greens as any fancy system.\n\nStart with broccoli sprouts this week. Build from there. In one month, you'll have fresh anti-inflammatory microgreens three times a week for pennies. By then, growing your own will feel completely natural.\n\nYou've got this!\n\n---\n\n## Quick Reference: Vendors & Links\n\n### Seeds\n- [Organo Republic Broccoli](https://organorepublic.com/products/broccoli-sprouting-microgreens-seeds-non-gmo-heirloom-sprout-seeds-kit-in-bulk-1lb-resealable-bag-for-planting-growing-microgreens-in-soil-coconut-coir-garden-aerogarden-hydroponic-system)\n- [True Leaf Market Broccoli](https://trueleafmarket.com/products/broccoli-waltham-29-microgreens-seeds)\n- [Osborne Seed Red Cabbage](https://www.osborneseed.com/products/red-acre-cabbage-untreated-microgreen-seeds)\n- [Organo Republic Red Cabbage](https://organorepublic.com/collections/broccoli-microgreens)\n- [Organo Republic Arugula](https://organorepublic.com/products/arugula-sprouting-microgreens-seeds-non-gmo-heirloom-sprout-seeds-kit)\n- [Eden Brothers Arugula](https://www.edenbrothers.com/collections/arugula_seeds)\n\n### Equipment Sources\n- [Bootstrap Farmer Microgreens Trays](https://www.bootstrapfarmer.com/products/microgreen-trays)\n- [Bootstrap Farmer Growing Supplies](https://www.bootstrapfarmer.com/collections/microgreen-products)\n- [Home Depot Coco Coir](https://www.homedepot.com/b/Outdoors-Garden-Center-Landscaping-Supplies-Soils/Coco-Coir/N-5yc1vZbx67Z1z1q28r)\n- [Lowe's Potting Soil & Coco Coir](https://www.lowes.com/pl/landscaping/soil-soil-amendments/coconut-coir/2450073601-1160316363)\n- [Amazon Microgreens Kits & Supplies](https://www.amazon.com/microgreens-trays/s?k=microgreens+trays)\n\n### Learning Resources\n- [True Leaf Market Blog: Best Trays for Microgreens](https://trueleafmarket.com/blogs/articles/best-trays-and-containers-for-growing-microgreens)\n- [Gardenary: Cost to Grow Microgreens](https://www.gardenary.com/blog/how-much-does-it-cost-to-grow-microgreens-at-home)\n\n---\n\n**Ready to grow? You've got everything you need. Happy sprouting!** \ud83c\udf31\n"}], "grading": {"eval_id": 0, "eval_name": "anti-inflammatory-beginner-budget", "run_type": "with_skill", "expectations": [{"text": "recommends_broccoli_sprouts_for_inflammation", "passed": true, "evidence": "Response explicitly recommends broccoli sprouts as '#1' variety and states: 'Broccoli sprouts are the gold standard for anti-inflammatory support. They contain sulforaphane, a compound that's been extensively studied for its ability to reduce joint inflammation' and notes '3-day-old broccoli sprouts contain 10-100x more sulforaphane than mature broccoli.'"}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides exactly 3 varieties: (1) Broccoli Sprouts, (2) Red Cabbage Microgreens, (3) Arugula Microgreens, each with dedicated sections clearly labeled with emoji and #1, #2, #3."}, {"text": "includes_vendor_options", "passed": true, "evidence": "Response includes vendor tables with specific names and pricing. For broccoli: Organo Republic ($17.99 for 1lb bulk) and True Leaf Market (~$8-12 standard packet), with direct links provided. Similar tables for red cabbage and arugula include vendor names, pricing, and direct links."}, {"text": "includes_day_by_day_timeline", "passed": true, "evidence": "Response provides detailed day-by-day timeline for Broccoli Sprouts (Jar Method) spanning DAY 0 through DAY 4, with specific instructions for each day including soaking time, rinsing frequency, and harvest window."}, {"text": "budget_appropriate_setup", "passed": true, "evidence": "Response provides two paths: PATH A at $15-26 for absolute minimum (jar sprouting), and PATH B at $19-39 for beginner tray setup, both fitting within $30-40 budget. DIY tray construction from dollar store containers is explicitly explained."}, {"text": "personalized_to_inflammation_goal", "passed": true, "evidence": "Response explicitly connects back to user's inflammation goal in multiple places. Stage 1 states: 'Since you're a beginner with a tight budget ($30-40) and excellent natural light, we'll focus on varieties that are: High in anti-inflammatory compounds.' Each variety section explains anti-inflammatory benefits (sulforaphane for broccoli, anthocyanins for red cabbage, quercetin for arugula) and Anti-Inflammatory Eating Tips section explains how to maximize benefits for joint health."}], "pass_rate": 1.0, "notes": "Exceptional response that exceeds expectations. Provides comprehensive personalized guidance addressing all assertions with extensive detail, vendor research with actual pricing/links, multiple equipment paths accommodating the budget, clear day-by-day timelines for all varieties, and strong connection back to the user's health goal of managing joint inflammation."}}, {"id": "eval-0-anti-inflammatory-without_skill", "prompt": "I've been dealing with a lot of joint inflammation lately and my doctor mentioned diet could help. A friend told me about growing your own sprouts or microgreens at home? I'm a total beginner with no equipment yet. I have a small kitchen with decent light from a south-facing window. Budget is around $30-40 to start. What should I grow?", "eval_id": 0, "outputs": [{"name": "response.md", "type": "text", "content": "# Growing Microgreens and Sprouts for Joint Inflammation: A Beginner's Guide\n\n## Introduction\n\nYour doctor's suggestion about diet and your friend's recommendation about growing sprouts are well-founded. Microgreens and sprouts are nutrient-dense superfoods that can be grown at home with minimal equipment\u2014making them perfect for your small kitchen with a south-facing window. You can get started well within your $30-40 budget.\n\n---\n\n## Best Varieties to Grow for Joint Inflammation\n\nResearch shows that microgreens contain up to 60 times the nutrients of mature plants and have over 40% more anti-inflammatory properties than full-grown vegetables. Here are the best options for your health goals:\n\n### Top Choices\n\n**Broccoli Microgreens/Sprouts** (BEST CHOICE)\n- Rich in sulforaphane precursors, compounds with strong antioxidant and anti-inflammatory effects\n- Broccoli sprouts are the best source of sulforaphane among cruciferous vegetables\n- Easy for beginners, hardy, and fast-growing\n- Ready to harvest in 10-14 days\n\n**Alfalfa Sprouts**\n- Contains saponins and antioxidants that support joint health\n- Helps reduce inflammation and body aches\n- Excellent for fighting osteoarthritis and musculoskeletal conditions\n- One of the easiest varieties to grow\n\n**Radish Microgreens**\n- High in antioxidants to reduce oxidative stress and inflammation\n- Contains isothiocyanates with powerful anti-inflammatory properties\n- Takes 10-14 days to harvest\n\n**Other Anti-Inflammatory Varieties**\n- Cabbage microgreens\n- Kale microgreens\n- Mustard greens\n- All contain glucosinolates and omega-3 fatty acids that help reduce inflammation\n\n---\n\n## Equipment and Setup (Within Your Budget)\n\nThe good news: you likely have most of what you need at home already. Microgreen production for home self-consumption doesn't require special tools.\n\n### Minimal Equipment Needed\n\n**Essential Items:**\n1. **Seeds** - $10-15 (one seed packet lasts multiple plantings)\n2. **Shallow containers** - FREE (use containers you have at home: takeout trays, small plastic containers, or recycled food containers)\n3. **Potting soil or seed starting mix** - $5-10 (small bag from any garden center)\n4. **Natural light** - FREE (your south-facing window provides this)\n\n**Total Cost: $15-25** (well within your budget!)\n\n### Budget-Friendly Kit Options\n\nIf you prefer a complete kit:\n\n- **Hamama Microgreens Kit** - Around $30-40\n  - Includes tray, growing medium, and broccoli seeds\n  - Features simple \"30-second setup, just add water\" design\n  - Harvests ready in 1-2 weeks\n\n- **Back to the Roots Variety Pack** - Around $35-40\n  - Includes multiple seed varieties\n  - Reusable trays and growing medium\n  - No special knowledge required\n\n- **Basic Budget Kits** - $20-30\n  - Legigo 5-pack sprouting trays\n  - Simple, affordable entry point\n  - Great for trying multiple varieties\n\n### What You Can Use From Home\n\n- Shallow plastic storage containers (with drain holes)\n- Takeout containers from restaurants\n- Old kitchen trays\n- Mason jars (for sprouts)\n- Spray bottle (for misting)\n- Regular scissors or kitchen shears\n\n---\n\n## Step-by-Step Growing Instructions\n\n### Before You Start\n\nMicrogreens take 1-2 weeks to harvest, making them the fastest way to grow fresh greens at home. They don't require any special tools beyond what you likely have in your kitchen.\n\n### The Process\n\n**Step 1: Prepare Your Setup**\n- Choose your shallow container (1 inch depth is sufficient)\n- Add drain holes if necessary (use a fork or drill)\n- Fill with 1 inch of moist potting soil or seed starting mix\n- Use organic, sterile potting soil (made of perlite and coconut coir)\n- Moisten the soil before planting\n\n**Step 2: Sow the Seeds**\n- Spread seeds evenly across the soil surface\n- Use a generous amount (densely plant them)\n- Lightly press seeds into the soil\n- Don't bury them; they need light to germinate\n- Mist lightly with water\n\n**Step 3: Initial Germination (Days 1-3)**\n- Cover the container loosely with plastic wrap, paper towel, or a lid\n- Place near your south-facing window (doesn't need strong light yet)\n- Keep soil moist but not waterlogged\n- Most microgreens germinate within 2-3 days\n\n**Step 4: Growing Phase (Days 4-10)**\n- Remove the cover once you see sprouting\n- Place in direct light from your south-facing window\n- Water daily by misting or bottom-watering (keep soil moist)\n- Ensure good air circulation\n- Watch for vibrant green leaves to develop\n\n**Step 5: Harvest (Days 10-14)**\n- Harvest when microgreens are 1-3 inches tall\n- Wait until they've produced their first set of adult leaves\n- Use clean scissors to snip them at the base\n- Harvest in the morning for best nutritional content\n- Rinse before eating\n- Store in the refrigerator in an airtight container for up to 5 days\n\n### Timeline Summary\n- Germination: 2-3 days\n- Total growth: 10-14 days\n- From seed to harvest: Just 1-2 weeks!\n\n---\n\n## Where to Buy Seeds and Equipment Online\n\n### Top Seed Vendors (2026)\n\n**Specialty Microgreen Seed Companies:**\n\n1. [True Leaf Market Seed Company](https://trueleafmarket.com/collections/micro-greens-planting-seed)\n   - Non-GMO, heirloom, and organic seeds\n   - Over 500,000 customers since 1974\n   - Microgreen kits also available\n\n2. [Johnny's Selected Seeds](https://www.johnnyseeds.com/vegetables/microgreens/)\n   - Diverse flavors, colors, and textures\n   - Varieties noted for quality\n\n3. [Mumm's Sprouting Seeds](https://sprouting.com/)\n   - Certified organic, non-GMO\n   - From family farms across Saskatchewan\n\n4. [Sow Right Seeds](https://sowrightseeds.com/collections/microgreens-seeds)\n   - Non-GMO microgreen seeds\n   - Budget-friendly options\n\n5. [High Mowing Organic Seeds](https://www.highmowingseeds.com/vegetables/microgreens.html)\n   - Certified organic microgreen seed\n   - Optimized for home production\n\n6. [Organo Republic](https://organorepublic.com/collections/microgreens-and-sprouting-seeds)\n   - Organic, non-GMO options\n   - Arugula, radish, beet varieties\n\n7. [West Coast Seeds](https://www.westcoastseeds.com/collections/microgreens-seeds)\n   - 2026 new varieties available\n   - Baby salad greens options\n\n8. [Park Seed](https://www.parkseed.com/collections/microgreens-sprouts)\n   - Non-GMO microgreen seeds\n   - Reliable supplier\n\n### Complete Kit Suppliers\n\n- [Hamama Microgreens Kit](https://www.hamama.com/products/microgreens-kit) - Premium option with simplicity\n- [Back to the Roots](https://backtotheroots.com/products/microgreen-grow-kit-variety-3-pack) - Variety 3-pack kit\n- [True Leaf Market](https://trueleafmarket.com/collections/micro-green-kits) - Multiple kit options\n- [Amazon](https://www.amazon.com/Microgreens-Growing-Kit-Self-Watering/dp/B095Z7QR9T) - Self-watering kits with bamboo frame\n\n### Shopping Tips for Your Budget\n\n1. Buy seed packets rather than kits initially (cheaper per growing cycle)\n2. Start with 2-3 varieties: broccoli, alfalfa, and radish\n3. Reuse containers from home to keep costs down\n4. Most seed packets ($2-4 each) last multiple plantings\n5. Potting soil (small 2-quart bag) is $5-8 at any garden center\n\n---\n\n## Tips for Success in Your Small Kitchen\n\n### Lighting Optimization\n- Your south-facing window is ideal for microgreens\n- Microgreens need less light than full plants\n- 4-6 hours of direct sunlight daily is sufficient\n- No grow lights needed if you have adequate window light\n\n### Space-Saving Ideas\n- Stack multiple shallow containers on a shelving unit\n- Use vertical space on windowsills\n- Rotate containers to maximize light exposure\n- One south-facing window can support 3-5 simultaneous crops\n\n### Water Management\n- Keep soil consistently moist but not waterlogged\n- Use a spray bottle to avoid overwatering\n- Bottom-watering (setting container in water) prevents flooding\n- Ensure drainage to prevent mold and rot\n\n### Air Circulation\n- Open window occasionally for fresh air circulation\n- Use a small fan on low setting if needed\n- Good airflow prevents mold and promotes healthy growth\n\n### Best Varieties for Beginners\n- Broccoli (hardiest, fastest, easiest)\n- Kale\n- Mustard greens\n- Radish\n\n---\n\n## Nutritional Benefits for Joint Health\n\nThe anti-inflammatory compounds in these microgreens include:\n\n- **Sulforaphane** (broccoli): Powerful antioxidant and anti-inflammatory\n- **Saponins** (alfalfa): Support joint health and reduce inflammation\n- **Isothiocyanates** (radish): Potent anti-inflammatory compounds\n- **Glucosinolates** (cabbage, kale, mustard): Help mitigate inflammation\n- **Omega-3 fatty acids**: Additional anti-inflammatory support\n\nStudies show microgreens have up to 40% more anti-inflammatory properties than mature plants, making them particularly effective for addressing joint inflammation.\n\n---\n\n## Your Action Plan\n\n1. **Week 1: Purchase** ($20-35)\n   - Order seeds from True Leaf Market or Mumm's Sprouting Seeds\n   - Pick up potting soil from local garden center\n   - Gather containers from home\n\n2. **Week 2: First Planting**\n   - Plant broccoli seeds (most forgiving variety)\n   - Water and cover for germination\n\n3. **Week 3-4: First Harvest**\n   - Harvest your first crop of broccoli microgreens\n   - Begin second crop of alfalfa or radish\n\n4. **Ongoing: Rotation System**\n   - Plant new crop every 3-4 days\n   - Stagger plantings for continuous supply\n   - Harvest and consume 1-2 containers weekly\n\n---\n\n## Final Thoughts\n\nGrowing your own microgreens is one of the easiest and most rewarding gardening projects, especially for managing joint inflammation through diet. You can start with minimal investment, harvest fresh greens within 2 weeks, and enjoy their potent anti-inflammatory properties. Your south-facing kitchen window is actually ideal for this project\u2014no special grow lights needed.\n\nStart with broccoli microgreens for the best anti-inflammatory benefits and easiest growing experience. Once you're comfortable, experiment with alfalfa, radish, and other varieties. Within a month, you'll have established a continuous supply of nutrient-dense greens to support your joint health.\n\n---\n\n## Sources\n\nResearch and current vendor information sourced from:\n\n- [Microgreens\u2014A Comprehensive Review of Bioactive Molecules and Health Benefits - PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC9864543/)\n- [The Anti-Inflammatory Benefits of Sprouts: What Science Says - Zesti Greens](https://zestigreens.com/blogs/news/the-anti-inflammatory-benefits-of-sprouts-what-science-says)\n- [The Most Nutrient-Dense Microgreens You Can Grow at Home - Agritecture](https://www.agritecture.com/blog/5-nutrient-dense-microgreens-you-can-grow-at-home)\n- [A Step-By-Step Guide for Growing Microgreens at Home - Penn State Extension](https://extension.psu.edu/a-step-by-step-guide-for-growing-microgreens-at-home)\n- [How to Grow Microgreens at Home: A Beginner's Guide - Almanac.com](https://www.almanac.com/plant/microgreens)\n- [8 Best Microgreen Growing Kits for 2026 - Green Coast](https://greencoast.org/best-microgreen-growing-kits/)\n- [True Leaf Market Seed Company](https://trueleafmarket.com/collections/micro-greens-planting-seed)\n- [Johnny's Selected Seeds - Microgreens](https://www.johnnyseeds.com/vegetables/microgreens/)\n- [Mumm's Sprouting Seeds](https://sprouting.com/)\n- [Sow Right Seeds - Microgreens](https://sowrightseeds.com/collections/microgreens-seeds)\n- [High Mowing Organic Seeds - Microgreens](https://www.highmowingseeds.com/vegetables/microgreens.html)\n- [Organo Republic - Microgreens and Sprouting Seeds](https://organorepublic.com/collections/microgreens-and-sprouting-seeds)\n- [West Coast Seeds - Microgreens](https://www.westcoastseeds.com/collections/microgreens-seeds)\n- [Park Seed - Microgreens & Sprout Seeds](https://www.parkseed.com/collections/microgreens-sprouts)\n- [Hamama Microgreens Kit](https://www.hamama.com/products/microgreens-kit)\n- [Back to the Roots Microgreen Grow Kit](https://backtotheroots.com/products/microgreen-grow-kit-variety-3-pack)\n"}], "grading": {"eval_id": 0, "eval_name": "anti-inflammatory-beginner-budget", "run_type": "without_skill", "expectations": [{"text": "recommends_broccoli_sprouts_for_inflammation", "passed": true, "evidence": "Response recommends 'Broccoli Microgreens/Sprouts (BEST CHOICE)' as first option and states: 'Rich in sulforaphane precursors, compounds with strong antioxidant and anti-inflammatory effects. Broccoli sprouts are the best source of sulforaphane among cruciferous vegetables.'"}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides more than 3 varieties. Under 'Top Choices' it lists: (1) Broccoli Microgreens/Sprouts, (2) Alfalfa Sprouts, (3) Radish Microgreens, plus (4) Other Anti-Inflammatory Varieties section mentioning Cabbage microgreens, Kale microgreens, and Mustard greens."}, {"text": "includes_vendor_options", "passed": true, "evidence": "Response lists 8 seed vendors with links: (1) True Leaf Market, (2) Johnny's Selected Seeds, (3) Mumm's Sprouting Seeds, (4) Sow Right Seeds, (5) High Mowing Organic Seeds, (6) Organo Republic, (7) West Coast Seeds, (8) Park Seed. All include direct links."}, {"text": "includes_day_by_day_timeline", "passed": false, "evidence": "Response provides a generic timeline structure ('Germination: 2-3 days, Total growth: 10-14 days, From seed to harvest: Just 1-2 weeks!') but does NOT provide actual day-by-day timeline with specific instructions for any variety. The 'Step-by-Step Growing Instructions' section describes 5 general steps but lacks day-specific details (no 'DAY 0', 'DAY 1', etc. format with specific actions)."}, {"text": "budget_appropriate_setup", "passed": true, "evidence": "Response provides budget-friendly approach: 'Total Cost: $15-25' for minimal equipment needed. Lists 'Essential Items' costing $10-15 for seeds plus $5-10 for potting soil, within $30-40 budget. Also mentions complete kit options ($30-40) as alternative."}, {"text": "personalized_to_inflammation_goal", "passed": false, "evidence": "While response mentions the user's inflammation goal in introduction ('You've mentioned dealing with joint inflammation'), it does not consistently connect back to inflammation management throughout. Most variety descriptions focus on general benefits without explicit inflammation connections. Missing explicit guidance on how to maximize anti-inflammatory benefits for the specific joint inflammation use case."}], "pass_rate": 0.67, "notes": "Solid response with good vendor research and budget awareness, but falls short on two key assertions: lacks detailed day-by-day timeline (only provides summary timeline) and doesn't consistently personalize recommendations back to the inflammation health goal. Response reads more as general microgreens guidance rather than inflammation-focused treatment."}}, {"id": "eval-1-vegan-energy-with_skill", "prompt": "I'm a vegan and I'm looking for plant-based ways to boost my energy and protein intake. I already have a 10x20 tray and some potting mix. Can you help me figure out the best microgreens to grow? I'd like to grow something I can add to smoothies and salads every day.", "eval_id": 1, "outputs": [{"name": "response.md", "type": "text", "content": "# Your Personalized Microgreens Growing Plan: Energy & Protein for Vegans\n\nWelcome! I'm so glad you're taking this step to grow your own nutrient-dense greens at home. Your setup with a 10x20 tray and potting mix gives you a perfect foundation. Let's build a plan to boost your energy and protein intake with varieties you can harvest daily for smoothies and salads.\n\n---\n\n## Stage 1: Your Health Goals\n\nYou're looking for:\n- **Vegan-friendly protein sources** to replace animal products\n- **Sustained energy and vitality** for daily performance\n- **Daily harvesting capability** for convenient smoothie and salad additions\n- **Quick turnaround** for regular supply\n\nPerfect! I've matched three microgreens varieties that are nutritional powerhouses for plant-based diets, all suited to your tray and soil setup.\n\n---\n\n## Stage 2: Your Top 3 Recommended Varieties\n\n### \ud83c\udf31 #1: Sunflower Microgreens\n\n**Why it's perfect for you:** Sunflower microgreens contain all nine essential amino acids, making them a complete vegan protein source\u2014rare among plant foods! They're packed with B vitamins for sustained energy and iron for oxygen transport. Their mild, nutty flavor works beautifully in both smoothies and salads.\n\n**Key nutrients:** Complete protein (all 9 essential amino acids), Vitamin E, B vitamins (especially B1, B2), iron, zinc, selenium, magnesium\n\n**Difficulty:** Easy (Intermediate grower, but straightforward once you understand the weighted blackout method)\n\n**Time to harvest:** 10-14 days\n\n**Form:** Microgreen (soil-based, using your tray)\n\n---\n\n### \ud83c\udf31 #2: Pea Shoots\n\n**Why it's perfect for you:** Pea shoots have a remarkable protein-to-calorie ratio and offer complete amino acids just like sunflower. They're slightly faster to grow than sunflower (8-12 days), have a naturally sweet flavor that's perfect for smoothies, and are beginner-friendly. They're also exceptionally high in B vitamins and iron.\n\n**Key nutrients:** Protein, Vitamins A, C, K, folate, iron, fiber, magnesium\n\n**Difficulty:** Beginner (One of the most forgiving microgreens to grow)\n\n**Time to harvest:** 8-12 days\n\n**Form:** Microgreen (soil-based, prefers soil over hydroponic)\n\n---\n\n### \ud83c\udf31 #3: Broccoli Sprouts (Jar Method)\n\n**Why it's perfect for you:** While technically \"sprouts\" rather than microgreens, broccoli is a nutritional superstar for vegans. It's loaded with sulforaphane (an anti-inflammatory compound), Vitamin C for immune support, and digestive enzymes. Most importantly, 3-day-old broccoli sprouts contain up to 100 times more sulforaphane than mature broccoli! These are easy to grow in a mason jar alongside your tray growing, giving you variety without extra complexity.\n\n**Key nutrients:** Sulforaphane (anti-inflammatory), Vitamins C, E, K, beta-carotene, digestive enzymes, amino acids\n\n**Difficulty:** Beginner (Jar method\u2014minimal equipment needed)\n\n**Time to harvest:** 3-4 days for peak sulforaphane; can grow to 5-7 days for cotyledons\n\n**Form:** Sprout (jar-based\u2014uses equipment you likely already have)\n\n---\n\n### Why These Three?\n\n**Sunflower** is your heavyweight protein and energy source\u2014grow this as your main crop in your 10x20 tray. Its nutty flavor is excellent in salads and adds substance to smoothies.\n\n**Pea shoots** are your speedy, beginner-friendly backup. They germinate quickly and offer sweet flavor variety. Consider rotating between sunflower and pea shoots on your main tray for continuous harvesting.\n\n**Broccoli sprouts** are your medicinal addition\u2014quick to grow in a mason jar on a shelf, they give you the densest concentration of beneficial compounds. Use these in smoothies or scattered on salads for anti-inflammatory support.\n\nTogether, these three varieties ensure you never run out of fresh greens while hitting all your vegan nutrition goals.\n\n---\n\n## Stage 3: Where to Buy Seeds & Equipment\n\nSince you already have your tray and potting mix, I've found the best current vendors for seeds specifically. Below are two options for each variety\u2014one focusing on price, one on fast shipping.\n\n### SUNFLOWER MICROGREEN SEEDS\n\n| | Option A (Best Price) | Option B (Fastest Shipping) |\n|---|---|---|\n| **Vendor** | Organo Republic | True Leaf Market |\n| **Price per packet** | ~$8-12 (bulk options available) | $11.99 |\n| **Shipping speed** | 5-7 business days | 1-3 days |\n| **Link** | [Organo Republic Sunflower Seeds](https://organorepublic.com) | [True Leaf Market Sunflower](https://trueleafmarket.com/products/sunflower-black-oil-microgreens-seeds) |\n| **Notes** | Buy in bulk (1 lb bag sufficient for multiple trays); organic, Non-GMO | Pre-measured packets; comes with growing instructions |\n\n**Alternative:** [Sow Right Seeds](https://sowrightseeds.com/products/sunflower-microgreens-seeds) offers a good middle ground for price and shipping.\n\n---\n\n### PEA SHOOT MICROGREEN SEEDS\n\n| | Option A (Best Price) | Option B (Fastest Shipping) |\n|---|---|---|\n| **Vendor** | Organo Republic | True Leaf Market |\n| **Price per packet** | ~$10-15 (bulk options) | $12.99 |\n| **Shipping speed** | 5-7 business days | 1-3 days |\n| **Link** | [Organo Republic Pea Seeds](https://organorepublic.com) | [True Leaf Market Green Pea](https://trueleafmarket.com/products/pea-sprouting-green-organic) |\n| **Notes** | Bulk 1 lb bags; very affordable per tray | Speckled or Green varieties both work well |\n\n**Alternative:** [West Coast Seeds](https://www.westcoastseeds.com/products/microgreen-pea-shoot-seeds) for North American growers seeking organic options.\n\n---\n\n### BROCCOLI SPROUTING SEEDS\n\n| | Option A (Best Price) | Option B (Fastest Shipping) |\n|---|---|---|\n| **Vendor** | Organo Republic | True Leaf Market |\n| **Price per packet** | ~$8-10 (bulk 1 lb) | $11.79 |\n| **Shipping speed** | 5-7 business days | 1-3 days |\n| **Link** | [Organo Republic Broccoli](https://organorepublic.com/products/broccoli-sprouting-microgreens-seeds-non-gmo-heirloom-sprout-seeds-kit-in-bulk-1lb-resealable-bag-for-planting-growing-microgreens-in-soil-coconut-coir-garden-aerogarden-hydroponic-system) | [True Leaf Market Broccoli](https://trueleafmarket.com/products/organic-broccoli-sprouting-seeds) |\n| **Notes** | Non-GMO, pathogen-tested; 1 lb feeds dozens of jars | 4 oz ready-to-use packet |\n\n**Alternative:** [Food to Live](https://foodtolive.com/shop/organic-broccoli-seeds/) and [Johnny's Selected Seeds](https://www.johnnyseeds.com/vegetables/sprouts/broccoli-sprouting-seeds-2108.html) both offer high-quality, pathogen-tested seeds.\n\n---\n\n### Equipment Summary\n\n**What you already have:**\n- 10x20 tray with drainage holes \u2713\n- Potting mix \u2713\n\n**What you'll need to add:**\n- **Spray bottle** (~$3-5) \u2014 for misting during blackout phase\n- **Mason jar with sprouting lid** (~$5-8) \u2014 for broccoli sprouts (or use cheesecloth + rubber band)\n- **Optional: second tray** (~$5-10) \u2014 for growing pea shoots while sunflower is growing, or for rotation\n\n**Estimated total additional cost:** $8-23 (minimal!)\n\n**Total estimated seed cost:** $30-40 for bulk packets that will last you several months of continuous growing.\n\n---\n\n## Stage 4: Complete Day-by-Day Growing Instructions\n\nGrow all three varieties simultaneously or in rotation. I recommend:\n- **Main tray (10x20):** Alternate between Sunflower (2 weeks) and Pea Shoots (10 days) for continuous harvesting\n- **Mason jar(s):** Run Broccoli sprouts continuously on a shelf, starting a new batch every 3-4 days so you always have fresh ones\n\nHere are the detailed instructions for each:\n\n---\n\n## \ud83c\udf31 SUNFLOWER MICROGREENS \u2014 Complete Growing Guide\n\n### Your Setup\n- **Tray:** 10x20 with drainage holes\n- **Growing medium:** Potting mix (you have this!)\n- **Seeding density:** 2 oz of unhulled sunflower seeds per tray\n- **Light source:** Sunny window (south-facing ideal) or LED grow light 2-4 inches above\n- **Temperature:** 65-75\u00b0F (18-24\u00b0C)\n\n---\n\n### Day-by-Day Timeline\n\n```\nDAY 0 (Evening)\n\u2514\u2500 Soak seeds: Measure 2 oz unhulled sunflower seeds. Rinse thoroughly under cool water.\n   Place in a bowl with 1 cup cool water. Let soak 8-12 hours.\n\nDAY 1 (Morning)\n\u2514\u2500 Prepare tray: Drain soaked seeds completely. Fill your 10x20 tray with 1.5-2 inches\n   of moistened potting mix (moisten the mix with water before filling tray).\n\u2514\u2500 Spread seeds: Spread drained seeds in a single tight layer across the soil surface.\n   Seeds should be touching but not stacked. Mist the seed layer lightly with spray bottle.\n\u2514\u2500 Start blackout: Cover the tray with your second tray (if you have one) or a large\n   piece of cardboard/newspaper. Add weight on top (canned goods, books, or another tray).\n   The weight helps seeds shed their hulls as they sprout.\n\u2514\u2500 Store in darkness: Place in a dark location (closet, cabinet) at room temperature.\n\nDAY 1-5 (Blackout Phase)\n\u2514\u2500 Check daily for moisture: The soil should feel consistently moist but never waterlogged.\n\u2514\u2500 DO NOT mist the surface\u2014water from the bottom by pouring water into the outer tray\n   (if you have a second tray underneath).\n\u2514\u2500 Days 2-3: You'll see 2-3 inch white stems pushing up through the soil.\n\u2514\u2500 Days 4-5: Stems should be 2-4 inches tall, beginning to shed hulls naturally.\n\nDAY 5-6 (Uncover & Transition)\n\u2514\u2500 Remove cover and weight carefully.\n\u2514\u2500 Light assessment: You'll see pale yellow/white stems pushing up. First true leaves\n   may be beginning to emerge under hulls.\n\u2514\u2500 Move to light: Place tray in your brightest window or 2-4 inches under a grow light.\n   If using grow light, aim for 14-16 hours of light per day.\n\u2514\u2500 Remove stubborn hulls: Gently pick off any hulls that haven't fallen away naturally.\n   This prevents mold.\n\u2514\u2500 First watering: Begin bottom watering once daily. The soil should feel moist but not soggy.\n\nDAY 6-10 (Greening Phase)\n\u2514\u2500 Water from below: Daily watering from the bottom (pour water into outer tray so it\n   wicks up through drainage holes). Check that top inch of soil is moist.\n\u2514\u2500 Light exposure: 14-16 hours of light daily. Stems will elongate; cotyledons (seed leaves)\n   will begin opening and turning green as chlorophyll develops.\n\u2514\u2500 Temperature: Keep at 65-75\u00b0F. Warmer = faster growth, cooler = slower but more compact.\n\u2514\u2500 Watch for green: By day 8, you should see bright yellow-green coloring as the leaves\n   absorb light.\n\nDAY 10-14 (Harvest Window)\n\u2514\u2500 Visual cues for harvest readiness:\n   \u2022 Large paddle-shaped cotyledons fully open and spread\n   \u2022 Height of 4-6 inches\n   \u2022 Vibrant green coloring throughout\n   \u2022 Stems are sturdy and thick (not spindly)\n\u2514\u2500 Harvest timing: Sunflower is forgiving\u2014harvest anytime between day 10-14 when the\n   cotyledons look plump and green. Earlier (day 10-11) = milder, more tender flavor.\n   Later (day 13-14) = more robust, nuttier flavor.\n\nDAY 14+ (Harvest & Storage)\n\u2514\u2500 How to harvest: Use clean scissors to cut greens just above the soil line. Cut in the\n   morning when turgid with moisture.\n\u2514\u2500 Yield: One 10x20 tray yields approximately 1.5-2 lbs of fresh sunflower microgreens.\n\u2514\u2500 Rinse: Place harvested greens in a clean colander and rinse gently under cool water\n   for 10-15 seconds.\n\u2514\u2500 Dry: Spin in a salad spinner or pat dry with clean towels. Remove excess moisture so\n   they store longer.\n\u2514\u2500 Storage: Place in an airtight container with a paper towel (to absorb any remaining\n   moisture). Store in the refrigerator.\n\u2514\u2500 Shelf life: 5-7 days when stored properly.\n```\n\n---\n\n### Daily Care Checklist for Sunflower\n\n| Day | Blackout? | Watering | Light | Notes |\n|-----|-----------|----------|-------|-------|\n| 0-1 | Yes | Mist if dry | Dark | Soak seeds, spread on soil |\n| 2-5 | Yes | Check moisture daily | Dark | Check for stem growth; add weight |\n| 5-6 | Uncover | Bottom water | Bright light | Remove stubborn hulls |\n| 6-10 | No | Bottom water daily | 14-16 hrs light | Watch for greening |\n| 10-14 | No | Bottom water daily | 14-16 hrs light | Harvest window |\n\n---\n\n### Troubleshooting Sunflower\n\n**Problem: Seeds not sprouting**\n- *Cause:* Hulled sunflower seeds instead of unhulled, or old seed stock\n- *Fix:* Always use unhulled raw seeds; check expiration date; ensure seeds were in complete darkness during blackout\n\n**Problem: Leggy, pale stems with small leaves**\n- *Cause:* Not enough light\n- *Fix:* Move tray closer to light source or use grow light; ensure 14-16 hours of light exposure\n\n**Problem: Mold on soil surface**\n- *Cause:* Overwatering, poor airflow, or contaminated soil\n- *Fix:* Water only from bottom; ensure good ventilation; do not mist after uncovering; discard batch and sterilize tray\n\n**Problem: Hulls not coming off**\n- *Cause:* Insufficient weight during blackout, or seeds dried out\n- *Fix:* Use weighted blackout method (cardboard + books on top); mist hulls lightly and they'll often come off in 12-24 hours\n\n---\n\n## \ud83c\udf31 PEA SHOOTS \u2014 Complete Growing Guide\n\n### Your Setup\n- **Tray:** 10x20 with drainage holes (soil method preferred over hydroponic)\n- **Growing medium:** Potting mix\n- **Seeding density:** 2-3 oz of pea seeds per tray (peas are large seeds)\n- **Light source:** Sunny window or LED grow light 12-16 inches above\n- **Temperature:** 55-70\u00b0F (13-21\u00b0C) \u2014 peas prefer slightly cooler than sunflower\n\n---\n\n### Day-by-Day Timeline\n\n```\nDAY 0 (Evening)\n\u2514\u2500 Soak seeds: Measure 2.5 oz (1/2 cup) dried peas. Rinse thoroughly.\n   Place in bowl with 1.5 cups cool water. Soak for 8-12 hours (peas are large, need longer soak).\n\u2514\u2500 Prepare soil: While seeds soak, fill your 10x20 tray with 1.5-2 inches of moistened\n   potting mix.\n\nDAY 1 (Morning)\n\u2514\u2500 Drain seeds: Pour off water, drain thoroughly.\n\u2514\u2500 Spread on soil: Spread drained peas in a single dense layer across the soil.\n   Peas should be touching; it's okay if they're crowded.\n\u2514\u2500 Mist: Spray lightly to settle seeds.\n\u2514\u2500 Start blackout: Cover tray with another tray or cardboard (DO NOT use heavy weight\u2014\n   peas are delicate).\n\u2514\u2500 Store: Keep in darkness at cool room temperature (60-68\u00b0F is ideal).\n\nDAY 1-4 (Blackout Phase)\n\u2514\u2500 Expect rapid growth: Peas germinate very quickly\u2014you'll see white stems by day 2!\n\u2514\u2500 Check moisture: Keep soil consistently moist. Mist lightly if top layer feels dry.\n\u2514\u2500 No watering from bottom yet: Wait until after uncovering to avoid overwatering delicate sprouts.\n\u2514\u2500 Day 2-3: Stems will be 2-3 inches tall, pushing up toward the cover.\n\u2514\u2500 Day 4: Stems 3-5 inches tall with pale leaves beginning to unfurl under the cover.\n\nDAY 4-5 (Uncover & Light Transition)\n\u2514\u2500 Remove cover gently.\n\u2514\u2500 Initial appearance: Pale, elongated stems with white/pale leaves folded at top.\n\u2514\u2500 Move to light: Place tray in a bright window (south or west-facing ideal) or under\n   LED grow light at 12-16 inches distance.\n\u2514\u2500 Light schedule: 12-16 hours of light daily.\n\u2514\u2500 First bottom watering: Pour water into outer tray; let soil wick up moisture from below.\n\nDAY 5-8 (Greening Phase)\n\u2514\u2500 Water from below: Daily. Check that top inch of soil is moist but not soggy.\n\u2514\u2500 Light exposure: Stems will begin to turn green as they're exposed to light.\n\u2514\u2500 Growth pattern: Stems will continue to elongate (this is normal!). You'll see 2-4 sets\n   of leaves unfurling as the days progress.\n\u2514\u2500 Appearance by day 8: 4-6 inch stems with 2-3 sets of pale green leaves.\n\nDAY 8-12 (Harvest Window)\n\u2514\u2500 Visual cues for harvest readiness:\n   \u2022 Stems 4-8 inches tall\n   \u2022 At least 2-3 sets of leaves visible\n   \u2022 Tendrils (spiral curls) beginning to appear at leaf tips\n   \u2022 Bright green color throughout\n   \u2022 Texture: tender but sturdy stems\n\u2514\u2500 Harvest timing: Pea shoots are sweetest when harvested at day 8-10. If left longer\n   (day 11-12), stems become stringier but still edible.\n\u2514\u2500 Bonus: Pea shoots can sometimes produce a second harvest! After cutting, if you leave\n   the base and lower leaves, new growth may emerge.\n\nDAY 12+ (Harvest, Storage & Replanting)\n\u2514\u2500 How to harvest: Use clean scissors. Cut the top 3-4 inches of each shoot cluster,\n   leaving the lower stem and base leaves intact (for possible regrowth, or just for\n   cleaner cutting).\n\u2514\u2500 Yield: One 10x20 tray yields approximately 2-2.5 lbs of pea shoots.\n\u2514\u2500 Rinse: Gently rinse harvested shoots under cool water for 5-10 seconds.\n\u2514\u2500 Dry: Spin dry or pat with clean towels.\n\u2514\u2500 Storage: Place in airtight container with paper towel. Refrigerate.\n\u2514\u2500 Shelf life: 4-6 days when properly stored.\n\u2514\u2500 Flavor: Sweet, mild pea flavor\u2014perfect for smoothies and salads!\n```\n\n---\n\n### Daily Care Checklist for Pea Shoots\n\n| Day | Blackout? | Watering | Light | Notes |\n|-----|-----------|----------|-------|-------|\n| 0-1 | Yes | Mist if dry | Dark | Soak seeds; spread on soil |\n| 2-4 | Yes | Mist lightly | Dark | Rapid germination; stems grow fast |\n| 4-5 | Uncover | Begin bottom watering | Bright | Move to light |\n| 5-8 | No | Bottom water daily | 12-16 hrs light | Greening phase |\n| 8-12 | No | Bottom water daily | 12-16 hrs light | Harvest window |\n\n---\n\n### Troubleshooting Pea Shoots\n\n**Problem: Mold on soil**\n- *Cause:* Overwatering during blackout phase, poor airflow\n- *Fix:* Only mist lightly during days 1-4; ensure ventilation; discard and start fresh\n\n**Problem: Spindly, pale stems**\n- *Cause:* Not enough light\n- *Fix:* Move closer to window or grow light; increase light duration to 16 hours\n\n**Problem: Slow germination**\n- *Cause:* Cold temperatures or old seeds\n- *Fix:* Peas like cool temps (60-70\u00b0F), but not cold. Ensure room is at least 60\u00b0F; use fresh seeds\n\n**Problem: Shoots taste bitter**\n- *Cause:* Harvested too late or grown in too-warm conditions\n- *Fix:* Harvest by day 10 for sweetest flavor; keep temp below 70\u00b0F if possible\n\n---\n\n## \ud83c\udf31 BROCCOLI SPROUTS (Jar Method) \u2014 Complete Growing Guide\n\n### Your Setup\n- **Container:** 1 quart Mason jar (or any clean glass jar with wide mouth)\n- **Sprouting lid:** Fine mesh sprouting lid, or cheesecloth + rubber band\n- **Seeds:** Broccoli sprouting seeds (standard variety, not microgreen type)\n- **Water:** Filtered water or dechlorinated water (chlorine can inhibit sprouting)\n- **Temperature:** 65-75\u00b0F (18-24\u00b0C)\n- **Location:** Kitchen counter, shelf, or any dark or dim location\n\n---\n\n### Why Jar Sprouting for Broccoli?\n\nBroccoli sprouts reach maximum sulforaphane (the powerful anti-inflammatory compound) at 3-4 days. The jar method is perfect for this timeline. You'll grow these alongside your tray crops\u2014no additional equipment needed if you have basic mason jars.\n\n---\n\n### Day-by-Day Timeline\n\n```\nDAY 0 (Evening)\n\u2514\u2500 Measure seeds: Use 2 tablespoons of broccoli sprouting seeds (yields about 1-2 cups sprouts).\n\u2514\u2500 Rinse: Place in jar. Fill jar with cool water and swirl vigorously to rinse seeds and\n   remove any debris. Drain through sprouting lid or cheesecloth.\n\u2514\u2500 First soak: Refill jar with 1 cup of cool filtered water. Let seeds soak for 4-6 hours\n   (or overnight is fine).\n\nDAY 1 (Morning)\n\u2514\u2500 Drain: Pour off water through sprouting lid. Do NOT let seeds sit in water.\n\u2514\u2500 Invert at angle: Tilt jar at 45-degree angle in a bowl or glass. This allows water to\n   drain but keeps seeds moist and aerated.\n\u2514\u2500 Keep dark: Place jar in a dark location (kitchen cabinet, closet, or even with a cloth\n   over it). Darkness at this stage prevents mold and ensures good sprout development.\n\u2514\u2500 First rinse: That evening (about 12 hours later), add 1 cup water, swirl gently, and\n   drain again.\n\nDAY 2 (Morning)\n\u2514\u2500 Rinse again: Add water, swirl, drain. You'll see tiny white tails emerging from some seeds.\n\u2514\u2500 Evening: Repeat rinse and drain.\n\u2514\u2500 Rinse frequency: Going forward, rinse and drain twice per day (morning and evening).\n\nDAY 3 (Morning)\n\u2514\u2500 Appearance: White tails should be 0.5-1 inch long on most seeds. Sprouts beginning to\n   develop a pale yellow appearance.\n\u2514\u2500 Continue rinsing: Morning and evening rinses keep sprouts fresh and prevent bacteria.\n\u2514\u2500 Optional light exposure: You can briefly expose jar to indirect light (30 minutes) to\n   start developing chlorophyll, but it's optional.\n\nDAY 3-4 (Peak Sulforaphane Window)\n\u2514\u2500 HARVEST READY: At 3-4 days, broccoli sprouts have maximum sulforaphane content.\n\u2514\u2500 Appearance: Tails are 0.5-1 inch long; some seed hulls may still be attached (this is fine).\n\u2514\u2500 Flavor: Mild, slightly sweet, with a hint of broccoli.\n\u2514\u2500 How to harvest: Rinse thoroughly, drain well, and transfer to storage container.\n\u2514\u2500 Optional extended growth: If you prefer longer sprouts with cotyledons opening (green leaves),\n   continue to day 5-7:\n   - Day 5: Expose to indirect light briefly (2-4 hours)\n   - Day 6-7: Increase light exposure to 4-8 hours daily\n   - By day 7: Small green leaves may emerge\n\nDAY 4+ (Storage)\n\u2514\u2500 How to store: Place rinsed, drained sprouts in airtight container (glass jar with loose lid\n   or sealed plastic container).\n\u2514\u2500 Keep refrigerated: Best stored at 35-40\u00b0F (refrigerator).\n\u2514\u2500 Shelf life: 3-4 days for maximum freshness and enzyme content. Can last up to 5-7 days but\n   potency decreases.\n\u2514\u2500 Before eating: Rinse once more under cool water just before consuming.\n\u2514\u2500 Usage: Add to smoothies, salads, sandwiches, or eat plain.\n\nCONTINUOUS CYCLE RECOMMENDATION:\n\u2514\u2500 Start a new batch every 3-4 days so you always have fresh broccoli sprouts at peak potency.\n\u2514\u2500 Keep 2-3 jars going in rotation for seamless harvesting.\n```\n\n---\n\n### Daily Care Checklist for Broccoli Sprouts\n\n| Day | Location | Rinsing | Water | Notes |\n|-----|----------|---------|-------|-------|\n| 0 | Dark | Initial soak | 1 cup, 4-6 hrs | Measure & rinse seeds |\n| 1 | Dark | Twice daily (AM/PM) | Drain completely | Invert jar at 45\u00b0 angle |\n| 2 | Dark | Twice daily (AM/PM) | Drain completely | White tails emerging |\n| 3-4 | Dark | Twice daily (AM/PM) | Drain completely | **HARVEST PEAK (Day 3-4)** |\n| 5-7 | Dim/indirect light | Twice daily | Drain completely | Optional for longer growth |\n\n---\n\n### Troubleshooting Broccoli Sprouts\n\n**Problem: Mold (white, gray, or black fuzzy growth)**\n- *Cause:* Seeds kept too wet, poor drainage, or contaminated water\n- *Fix:* Always drain completely after rinsing; use filtered water; ensure good air circulation;\n  discard batch if mold appears\n\n**Problem: Sprouts not germinating or sprouting very slowly**\n- *Cause:* Old seeds, water too cold, or incomplete draining\n- *Fix:* Use fresh seeds (check expiration date); use room-temperature water; ensure jar\n  is tilted for complete drainage\n\n**Problem: Sprouts smell bad (sulfurous)**\n- *Cause:* Incomplete rinsing, stagnant water, or temperature too warm\n- *Fix:* Rinse more frequently (3x per day if needed); ensure complete drainage; keep temperature\n  at 65-75\u00b0F\n\n**Problem: Sprouts taste bitter**\n- *Cause:* Too much light exposure early on, or over-ripening\n- *Fix:* Keep in darkness until day 3-4; harvest at peak (day 3-4) for mildest flavor\n\n---\n\n## Growing Timeline Strategy: How to Maintain Continuous Harvest\n\nSince you want fresh greens daily, here's a practical rotation plan:\n\n### Week 1\n- **Tray 1:** Start Sunflower microgreens (14-day harvest)\n- **Jar 1:** Start Broccoli sprouts (4-day harvest)\n- **Jar 2:** Start Broccoli sprouts (4-day harvest, offset by 2 days)\n\n### Week 2\n- **Tray 1:** Harvest Sunflower (day 10-14)\n- **Jar 1:** Continuous new broccoli batches every 4 days\n- **Jar 2:** Continuous new broccoli batches every 4 days\n- **Tray 2 (optional):** Start Pea shoots (10-day harvest) after Sunflower finishes\n\n### Week 3+\n- **Tray rotation:** Alternate Sunflower and Pea Shoots (one finishes while other grows)\n- **Jars:** Continuous broccoli sprouts every 3-4 days\n- **Result:** Daily fresh greens for smoothies and salads!\n\n---\n\n## Vegan Nutrition Highlights: Why These Three Work Together\n\n### Protein & Complete Amino Acids\n- **Sunflower:** 2-3 grams protein per ounce; all 9 essential amino acids\n- **Pea shoots:** 2-2.5 grams protein per ounce; all 9 essential amino acids\n- **Broccoli:** 0.5-1 gram protein per ounce, plus amino acids\n- **Combined daily serving (1 oz each):** 4.5-6.5 grams plant protein with complete amino acid profile\n\n### Energy-Supporting Nutrients\n- **Iron:** Pea shoots and sunflower are exceptional iron sources for vegans (plant-based iron is enhanced by Vitamin C in the same foods)\n- **B Vitamins:** All three varieties are B-rich; crucial for energy metabolism\n- **Magnesium:** Supports ATP production for cellular energy\n- **Chlorophyll:** Sunflower and pea shoots high in chlorophyll for blood oxygenation\n\n### Anti-Inflammatory Compounds\n- **Sulforaphane (Broccoli):** 10-100x more concentrated in 3-day-old sprouts; activates body's detox enzymes\n- **Antioxidants:** All three varieties packed with vitamins C and E\n- **Flavonoids:** Present in all varieties; support vascular health\n\n---\n\n## Food Safety Notes for Sprouts & Microgreens\n\nBoth sprouts and microgreens carry slightly higher bacteria risk than mature plants due to their growing environments. Here's how to stay safe:\n\n### Best Practices\n1. **Use clean equipment:** Rinse all jars, trays, and tools with hot water before use. Consider a 10-minute bleach soak monthly (1:10 bleach-to-water ratio), then rinse thoroughly.\n2. **Use filtered water:** If your tap water is heavily chlorinated, filter it or let it sit 24 hours before use.\n3. **Monitor for mold:** Check daily. At first sign of mold (white, gray, or dark fuzzy growth), discard the entire batch.\n4. **Ensure good drainage:** Waterlogged conditions breed bacteria. Drain completely after every rinse.\n5. **Storage hygiene:** Use clean containers; don't cross-contaminate with other foods.\n\n### Who Should be Cautious\n- Pregnant people\n- Young children under 5\n- Elderly individuals\n- Immunocompromised individuals\n\nThese groups may benefit from lightly cooking microgreens and sprouts (1-2 minute steam) to reduce microbial load, though this reduces some raw-food enzymes.\n\n---\n\n## Troubleshooting Quick Reference\n\n| Issue | Sunflower | Pea Shoots | Broccoli Sprouts |\n|-------|-----------|-----------|------------------|\n| **Mold** | Ensure bottom watering, good airflow, don't mist after uncovering | Avoid overwatering during blackout; ensure ventilation | Rinse more frequently; ensure complete drainage |\n| **Leggy/pale** | Not enough light; move to brighter spot | Not enough light; increase to 16 hrs daily | Normal if kept dark until day 3-4; light exposure at day 4+ develops color |\n| **Slow growth** | Old seeds or too-cold temp (below 65\u00b0F) | Cold temp or old seeds | Temperature below 65\u00b0F; use fresh seeds |\n| **Bad smell** | May indicate bacterial growth; discard | Rare; usually good sign if mold-free | Sulfurous smell = incomplete rinsing; rinse 3x daily |\n| **Poor germination** | Hulled seeds instead of unhulled | Old pea seeds | Old broccoli seeds; use fresh seed stock |\n\n---\n\n## Equipment Checklist\n\n**What you have:**\n- \u2713 10x20 tray\n- \u2713 Potting mix\n\n**What you need (if not already on hand):**\n- Spray bottle for misting \u2014 $3-5 (for blackout misting)\n- Mason jar(s) with sprouting lids \u2014 $8-12 for a set (or just use cheesecloth + rubber band)\n- Optional: LED grow light \u2014 $25-40 (if your window gets less than 12 hours of bright light)\n- Optional: Second 10x20 tray \u2014 $5-10 (for rotation, so you can grow while harvesting)\n\n**Total investment:** $15-30 to get started fully equipped\n\n---\n\n## Your First Action Steps\n\n1. **This week:**\n   - Order seeds from True Leaf Market (fastest) or Organo Republic (best bulk pricing)\n   - Acquire spray bottle and mason jar if you don't have them\n\n2. **Next week (upon seed arrival):**\n   - Start Broccoli sprouts in jar on a Monday\n   - Start Sunflower seeds in tray on Tuesday\n   - Start second batch of Broccoli sprouts Thursday (offset schedule)\n\n3. **Week 3:**\n   - Harvest first Broccoli batch (Thursday)\n   - Uncover and move Sunflower to light\n   - Start Pea shoots when ready for rotation\n\n4. **Week 4+:**\n   - Harvest Sunflower (day 10-14)\n   - Begin Pea shoots on empty tray\n   - Maintain continuous Broccoli jar rotation every 3-4 days\n\n---\n\n## Final Encouragement\n\nYou're about to grow some of the most nutrient-dense vegan protein and energy sources possible. Your investment is minimal\u2014under $50 for seeds and supplies\u2014and you'll harvest for months. The daily ritual of checking your growing trays and jars becomes wonderfully meditative, and the flavor and nutrition of homegrown microgreens far exceed store-bought versions.\n\nStart with the Pea Shoots if you want instant success (most forgiving), graduate to Sunflower for your main protein crop, and keep Broccoli sprouts running in jars for maximum medicinal potency.\n\nYou've got this. Happy growing!\n\n---\n\n## Quick Reference: Seed Vendor Links\n\n**Sunflower Seeds:**\n- [Organo Republic](https://organorepublic.com)\n- [True Leaf Market - Sunflower](https://trueleafmarket.com/products/sunflower-black-oil-microgreens-seeds)\n- [Sow Right Seeds - Sunflower](https://sowrightseeds.com/products/sunflower-microgreens-seeds)\n\n**Pea Shoot Seeds:**\n- [Organo Republic](https://organorepublic.com)\n- [True Leaf Market - Green Pea](https://trueleafmarket.com/products/pea-sprouting-green-organic)\n- [West Coast Seeds - Pea Shoots](https://www.westcoastseeds.com/products/microgreen-pea-shoot-seeds)\n- [High Mowing Seeds - Pea Shoots](https://www.highmowingseeds.com/organic-non-gmo-pea-shoots.html)\n\n**Broccoli Sprout Seeds:**\n- [Organo Republic](https://organorepublic.com/products/broccoli-sprouting-microgreens-seeds-non-gmo-heirloom-sprout-seeds-kit-in-bulk-1lb-resealable-bag-for-planting-growing-microgreens-in-soil-coconut-coir-garden-aerogarden-hydroponic-system)\n- [True Leaf Market - Broccoli](https://trueleafmarket.com/products/organic-broccoli-sprouting-seeds)\n- [Food to Live](https://foodtolive.com/shop/organic-broccoli-seeds/)\n- [Johnny's Selected Seeds](https://www.johnnyseeds.com/vegetables/sprouts/broccoli-sprouting-seeds-2108.html)\n\n---\n\n**Happy growing, and here's to better energy and nutrition from your own home!**\n"}], "grading": {"eval_id": 1, "eval_name": "vegan-energy-protein-intermediate", "run_type": "with_skill", "expectations": [{"text": "recommends_sunflower_or_pea_shoots", "passed": true, "evidence": "Response recommends both varieties prominently. #1 is Sunflower Microgreens, described as 'contain all nine essential amino acids, making them a complete vegan protein source.' #2 is Pea Shoots, described as having 'complete amino acids just like sunflower' and 'exceptional high in B vitamins and iron.'"}, {"text": "mentions_complete_protein", "passed": true, "evidence": "Response explicitly mentions complete proteins for multiple varieties: Sunflower 'contain all nine essential amino acids, making them a complete vegan protein source' and Pea Shoots 'offer complete amino acids.' Later section states 'Sunflower: 2-3 grams protein per ounce; all 9 essential amino acids' and 'Pea shoots: 2-2.5 grams protein per ounce; all 9 essential amino acids.'"}, {"text": "acknowledges_existing_equipment", "passed": true, "evidence": "Response explicitly acknowledges in Stage 3: 'Since you already have your tray and potting mix, I've found the best current vendors for seeds specifically' and in Equipment Summary: 'What you already have: 10x20 tray with drainage holes \u2713, Potting mix \u2713, What you'll need to add: Spray bottle...Mason jar with sprouting lid...Optional: second tray.'"}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides exactly 3 varieties: #1 Sunflower Microgreens, #2 Pea Shoots, #3 Broccoli Sprouts (Jar Method). Each has dedicated section with key nutrients, difficulty level, harvest time, and form."}, {"text": "includes_day_by_day_timeline", "passed": true, "evidence": "Response provides detailed day-by-day timelines for all three varieties. Sunflower has DAY 0-14 timeline, Pea Shoots has DAY 0-12 timeline, and Broccoli Sprouts has DAY 0-4 (peak) and optional extension to DAY 7. Each includes specific daily actions and observable growth markers."}, {"text": "includes_seed_vendor_options", "passed": true, "evidence": "Response includes detailed vendor tables for each variety with specific vendors named: Organo Republic, True Leaf Market, Sow Right Seeds, West Coast Seeds, Food to Live, Johnny's Selected Seeds. All include pricing, shipping times, and direct links to products."}], "pass_rate": 1.0, "notes": "Exceptional response that fully satisfies all assertions. Provides detailed guidance tailored to an intermediate grower with existing equipment, emphasizes vegan protein completeness, includes extensive day-by-day timelines for all three varieties, and provides comprehensive vendor options with pricing and links. Strong personalization to the user's existing setup and vegan nutritional goals."}}, {"id": "eval-1-vegan-energy-without_skill", "prompt": "I'm a vegan and I'm looking for plant-based ways to boost my energy and protein intake. I already have a 10x20 tray and some potting mix. Can you help me figure out the best microgreens to grow? I'd like to grow something I can add to smoothies and salads every day.", "eval_id": 1, "outputs": [{"name": "response.md", "type": "text", "content": "# Plant-Based Microgreens for Vegan Energy & Protein Boost\n\n## Best Microgreens for Vegan Energy and Protein\n\nMicrogreens are an excellent choice for vegans looking to boost energy and protein intake. Research shows that microgreens contain concentrated amounts of nutrients compared to fully grown plants, making them ideal for daily consumption in smoothies and salads.\n\n### Top Protein-Rich Varieties\n\n**Sunflower Microgreens**\n- Protein content: approximately 20%\n- Rich in healthy fats, vitamin E, and magnesium\n- Supports skin health, brain function, and energy production\n- Mild, slightly nutty flavor that works well in both smoothies and salads\n\n**Amaranth Microgreens**\n- Excellent plant-based protein source\n- High in vitamins A, B, C, and E\n- Rich in iron, copper, calcium, magnesium, zinc, and manganese\n- Supports sustained energy throughout the day\n\n**Radish Microgreens**\n- Contains some of the highest protein amounts among microgreens\n- Peppery flavor adds interest to salads\n- Good energy-boosting nutrients\n\n**Pea Microgreens**\n- High protein content\n- Sweet flavor that blends well into smoothies\n- Contains fiber for sustained energy\n\n**Buckwheat Microgreens**\n- High-protein option\n- Naturally gluten-free\n- Nutty flavor profile\n\n**Red Clover Microgreens**\n- Significant protein contribution\n- Nutrient-dense for vegan diets\n- Mild flavor suitable for daily consumption\n\n## Where to Buy Seeds & Pricing\n\nQuality microgreen seeds are available from several reputable suppliers:\n\n### Major Seed Suppliers (2026)\n\n1. [Johnny's Selected Seeds](https://www.johnnyseeds.com/vegetables/microgreens/) - Specializes in microgreens with new varieties for 2026 and bulk quantities available\n\n2. [True Leaf Market](https://trueleafmarket.com/collections/micro-greens-planting-seed) - Over half a million customers choose True Leaf Market for non-GMO, heirloom & organic seeds\n\n3. [Sow Right Seeds](https://sowrightseeds.com/collections/microgreens-seeds) - High quality, non-GMO microgreens seeds\n\n4. [High Mowing Organic Seeds](https://www.highmowingseeds.com/vegetables/microgreens.html) - Certified organic, non-GMO seed varieties\n\n5. [West Coast Seeds](https://www.westcoastseeds.com/collections/microgreens-seeds) - 2026 catalog with new microgreens varieties\n\n6. [Fedco Seeds](https://fedcoseeds.com/seeds/microgreens-collection-greens-5939) - Offers microgreens collections (8-pack with kale, collards, broccoli, purple basil, cress, arugula, mustard, and spinach)\n\n7. [Everywilde](https://www.everwilde.com/store/Organic-Microgreen-seeds.html) - Organic microgreen seeds in bulk and small packs\n\n8. [Ferry-Morse](https://ferrymorse.com/collections/microgreens-seeds) - Nutrient-rich superfood microgreen seeds\n\n### Pricing Guide\n\n- **Price range:** $0.60 to $8.50 per ounce, depending on variety and source\n- Bulk purchases typically offer better per-ounce pricing\n- Organic varieties are generally at the higher end of the price range\n- For a 10x20 tray, you'll typically need 1-2 ounces of seed per planting\n\n## Step-by-Step Growing Guide\n\nGrowing microgreens in your 10x20 tray is straightforward and requires minimal equipment.\n\n### What You'll Need\n\nYou already have:\n- 10x20 tray\n- Potting mix\n\nYou'll also need:\n- Microgreen seeds\n- Spray bottle for misting\n- Sharp scissors for harvesting\n- Measuring cups/spoons\n- Pitcher for watering\n- A location with access to at least 4 hours of direct sunlight daily\n\n### Growing Steps\n\n#### Step 1: Prepare Your Growing Medium\n1. Fill your 10x20 tray with 1-2 inches of moistened potting mix\n2. Ensure your tray has drainage holes in the bottom\n3. Place it inside a solid drip tray to catch excess water\n4. Gently pat the soil surface flat with your hand\n5. Add water until the soil is moist but not waterlogged\n\n#### Step 2: Soak and Plant Seeds\n1. Soak seeds in water for 6-8 hours (or follow package directions)\n2. Drain seeds using a colander\n3. Thinly scatter soaked seeds evenly over the moistened soil surface\n4. For larger seeds (like peas), space them about \u00bd to 1 inch apart\n5. For smaller seeds, space them more closely together\n6. Don't bury seeds\u2014they need light to germinate\n\n#### Step 3: Germination Phase (Blackout Period)\n1. Thoroughly mist seeds with water using your spray bottle\n2. Cover the tray with another tray or a board to create darkness\n3. Maintain moisture by misting daily\n4. Keep seeds dark for 2-5 days (timing depends on temperature and variety):\n   - 1-2 days in warm climates\n   - Up to 5 days in cold climates\n5. Check daily to ensure soil stays moist\n\n#### Step 4: Remove Cover & Provide Light\n1. When most seeds show sprouting, remove the cover\n2. Place the tray in a location with 4+ hours of direct sunlight daily\n3. A sunny window works well if you don't have grow lights\n4. Continue daily misting to keep the growing medium moist\n\n#### Step 5: Daily Care & Watering\n1. Water daily with your spray bottle, keeping the soil consistently moist\n2. Once sprouts develop roots, you can water more generously\n3. Allow excess water to drain into the drip tray\n4. Maintain consistent moisture\u2014not soggy, not dry\n5. Ensure good air circulation to prevent mold\n\n#### Step 6: Harvest\n1. Most microgreens are ready in 2-3 weeks from planting\n2. Look for the emergence of the first true leaves (the second set of leaves) as your harvesting signal\n3. To harvest: Gently grab a cluster of leaf tops and cut the base of the stems with sharp scissors\n4. Harvest in the morning for best flavor and nutritional content\n5. Use immediately or store in the refrigerator for up to 5-7 days\n\n### Best Beginner Varieties for Your Setup\n\nStart with these easiest-to-grow options:\n- **Sunflower** - High protein, fool-proof to grow\n- **Pea** - Sweet, reliable, great for smoothies\n- **Buckwheat** - Nutty flavor, fast growing\n- **Broccoli** - Small seeds, excellent nutrition\n- **Mustard** - Fast growing, peppery taste for salads\n\n## Daily Usage Tips\n\n**For Smoothies:**\n- Sunflower and pea microgreens blend smoothly\n- Mild flavor won't overpower fruit smoothies\n- Add 1-2 cups fresh microgreens per smoothie\n\n**For Salads:**\n- Radish and mustard add peppery kick\n- All varieties add visual appeal and crunch\n- Mix varieties for diverse nutrient profile\n\n**Storage:**\n- Store harvested microgreens in an airtight container in the refrigerator\n- Keep for 5-7 days for best quality\n- Use daily for continuous energy and protein boost\n\n## Sustainability Advantages\n\nGrowing your own microgreens is:\n- **Cost-effective:** You'll recoup seed costs within a few plantings\n- **Sustainable:** No packaging waste or transportation emissions\n- **Year-round:** You can grow continuously throughout the year\n- **Space-efficient:** One 10x20 tray produces substantial nutrition with minimal space\n\nWith your 10x20 tray setup, you can maintain a continuous supply of fresh, protein-rich microgreens for daily vegan nutrition. Plan successive plantings every 3-4 days to ensure a steady harvest once you get your first batch going.\n\n---\n\n## Sources\n\n- [Logsday - Best Superfoods for Health 2026](https://www.logsday.com/best-superfoods-for-health-2026-guide-top-30)\n- [Lean Plant Based - 6 High-Protein Microgreens](https://www.leanplantbased.com/6-high-protein-microgreens-that-you-can-easily-grow-indoors)\n- [Premium Medical Circle - 5 Food Trends 2026](https://premiummedicalcircle.com/en/artikel/from-microgreens-to-vegourmet-5-sustainable-food-trends)\n- [People's Farm - Microgreens Nutrition Chart](https://www.peoplesfarm.com/post/microgreens-chart-nutritional-overview)\n- [Iowa State University - Microgreen Nutritional Profile](https://www.isu.edu/media/libraries/rural-health/microgreens/Microgreen-Nutritional-Profile.pdf)\n- [VegBed - Top 10 Microgreens for Maximum Nutrition](https://www.vegbed.com/blogs/news/top-10-microgreens-to-grow-for-maximum-nutrition)\n- [Microgreens Corner - The 14 Most Nutritious Microgreens](https://www.microgreenscorner.com/the-most-nutritious-microgreens-to-grow-and-eat/)\n- [One Green Planet - 10 Microgreens to Add to Your Meals](https://www.onegreenplanet.org/natural-health/10-microgreens-to-add-your-meals/)\n- [Medical News Today - Microgreens: Health Benefits and Growing Tips](https://www.medicalnewstoday.com/articles/316075)\n- [Johnny's Selected Seeds - Microgreens](https://www.johnnyseeds.com/vegetables/microgreens/)\n- [True Leaf Market - Microgreens Seeds](https://trueleafmarket.com/collections/micro-greens-planting-seed)\n- [Sow Right Seeds - Microgreens Seeds](https://sowrightseeds.com/collections/microgreens-seeds)\n- [High Mowing Organic Seeds - Microgreens](https://www.highmowingseeds.com/vegetables/microgreens.html)\n- [West Coast Seeds - Microgreens Seeds](https://www.westcoastseeds.com/collections/microgreens-seeds)\n- [Fedco Seeds - Microgreens Collection](https://fedcoseeds.com/seeds/microgreens-collection-greens-5939)\n- [Ferry-Morse - Microgreens Seeds](https://ferrymorse.com/collections/microgreens-seeds)\n- [Everywilde - Organic Microgreen Seeds](https://www.everwilde.com/store/Organic-Microgreen-seeds.html)\n- [Penn State Extension - Step-By-Step Guide for Growing Microgreens](https://extension.psu.edu/a-step-by-step-guide-for-growing-microgreens-at-home)\n- [Feasting at Home - How to Grow Microgreens](https://www.feastingathome.com/how-to-grow-microgreens/)\n- [Gardener's Supply - How to Grow Microgreens from Seed](https://www.gardeners.com/how-to/grow-microgreens/7987.html)\n- [Barebones Living - How to Grow Microgreens at Home](https://barebonesliving.com/blogs/gardening-foraging/how-to-grow-microgreens-at-home)\n- [Piedmont Master Gardeners - Easy to Grow Microgreens](https://piedmontmastergardeners.org/article/easy-to-grow-microgreens/)\n- [Bootstrap Farmer - Microgreens 101](https://www.bootstrapfarmer.com/blogs/microgreens/how-to-grow-microgreens-101)\n- [Utah State University Extension - Grow Your Own Microgreens](https://extension.usu.edu/yardandgarden/research/grow-your-own-microgreens)\n- [Herbs at Home - How to Grow Microgreens at Home](https://herbsathome.co/how-to-grow-microgreens-at-home/)\n- [South Dakota State University - Growing Microgreens at Home](https://extension.sdstate.edu/growing-microgreens-home)\n"}], "grading": {"eval_id": 1, "eval_name": "vegan-energy-protein-intermediate", "run_type": "without_skill", "expectations": [{"text": "recommends_sunflower_or_pea_shoots", "passed": true, "evidence": "Response recommends both: 'Sunflower Microgreens - Protein content: approximately 20%' and 'Pea Microgreens - High protein content, Sweet flavor that blends well into smoothies.'"}, {"text": "mentions_complete_protein", "passed": false, "evidence": "Response provides protein content percentages but does NOT mention complete proteins or essential amino acids. For example, Sunflower lists 'Protein content: approximately 20%' without noting it contains all 9 essential amino acids. Pea Microgreens lists 'High protein content' without specifying complete amino acid profile. Assertion specifically requires mentioning 'complete amino acids or protein content for at least one recommendation.'"}, {"text": "acknowledges_existing_equipment", "passed": true, "evidence": "Response acknowledges existing setup in What You'll Need section: 'You already have: 10x20 tray, Potting mix' and 'You'll also need: Microgreen seeds, Spray bottle for misting, Sharp scissors for harvesting...' Response does not re-recommend basic tray setup from scratch."}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides 6 varieties: Sunflower, Amaranth, Radish, Pea, Buckwheat, Red Clover Microgreens. This exceeds the requirement of exactly 3 varieties. While assertion asks for 'Exactly 3 varieties,' response provides more without focusing specifically on the 3 best options."}, {"text": "includes_day_by_day_timeline", "passed": false, "evidence": "Response provides general harvesting guidance ('Most microgreens are ready in 2-3 weeks from planting') and best practices ('Look for the emergence of the first true leaves (the second set of leaves)') but does NOT provide actual day-by-day or phase-based timeline. No DAY-by-DAY format with specific daily actions for any variety."}, {"text": "includes_seed_vendor_options", "passed": true, "evidence": "Response includes 8 seed vendors with URLs: Johnny's Selected Seeds, True Leaf Market, Sow Right Seeds, High Mowing Organic Seeds, West Coast Seeds, Fedco Seeds, Everywilde, Ferry-Morse."}], "pass_rate": 0.67, "notes": "Mixed response that covers vendors well but lacks depth in critical areas. Fails to mention complete proteins/essential amino acids despite recommending sunflower and pea - a missed opportunity given vegan user's explicit interest in protein. More significantly, completely lacks day-by-day timeline despite assertion requirement. Recommends 6 varieties instead of focused 3. Reads as generic microgreens guide rather than customized for intermediate vegan grower's specific nutritional needs."}}, {"id": "eval-2-heart-health-beginner-with_skill", "prompt": "My mom was just diagnosed with high blood pressure and we want to start eating better at home. We heard microgreens might help. She's 68, not very tech-savvy and doesn't want anything complicated. We want to know what to grow, where to get stuff, and exactly how to do it step by step.", "eval_id": 2, "outputs": [{"name": "response.md", "type": "text", "content": "# Growing Microgreens for Heart Health: A Complete Beginner's Guide\n\nHello! I'm so glad your mom is taking steps to support her heart health. The good news is that growing microgreens at home is simpler than you might think, and some varieties are incredibly powerful for managing blood pressure and supporting cardiovascular wellness. Let me walk you through everything you need to know.\n\n---\n\n## Stage 1: Understanding Your Health Goals\n\nYour mom's goal is clear and important: **supporting heart health and managing blood pressure**. High blood pressure (hypertension) can be helped by a diet rich in potassium, magnesium, and nitrates \u2014 all compounds that help relax blood vessels and improve circulation. Microgreens are exceptional for this because they pack 4-40 times more nutrients than mature plants.\n\nSome varieties are specifically powerful for:\n- **Blood pressure support** (nitrates relax vessel walls)\n- **Arterial inflammation reduction** (prevents plaque buildup)\n- **Cholesterol support** (helps maintain healthy lipid levels)\n\nA few quick clarifications to make sure we nail this:\n\n1. **Tech comfort level:** You mentioned she's not very tech-savvy. Perfect \u2014 we'll focus on methods that don't require any special knowledge or fancy equipment.\n2. **Space and light:** Does she have a sunny windowsill (south-facing is best) or would she prefer to use a simple grow light?\n3. **Time commitment:** She's looking for something uncomplicated, so we'll focus on the fastest, easiest varieties. That means we're looking at 5-12 days from start to harvest, with just daily misting and watering.\n\nBased on her situation, I'm going to recommend **three varieties that are both beginner-friendly AND specifically targeted for heart health**. All three can be grown using simple methods \u2014 no special equipment required, though a starter kit can make it even easier.\n\n---\n\n## Stage 2: Top 3 Microgreens for Heart Health (Beginner-Friendly)\n\n### \ud83c\udf31 #1: Broccoli Sprouts (Jar Method)\n\n**Why it's perfect for you:** Broccoli sprouts are the MVP for heart health. They contain sulforaphane, a powerful compound that reduces arterial inflammation \u2014 the root cause of high blood pressure and heart disease. 3-day-old broccoli sprouts pack 10-100 times more sulforaphane than mature broccoli!\n\n**Key nutrients:** Sulforaphane (inflammation-fighter), glucosinolates, potassium, Vitamin C & E\n\n**Difficulty:** Beginner\n\n**Time to harvest:** 3-4 days (fastest option!)\n\n**Form:** Sprout (jar method \u2014 simplest possible)\n\n**Setup:** Just a mason jar, cheesecloth, and water. Zero complicated equipment.\n\n---\n\n### \ud83c\udf31 #2: Radish Microgreens (Tray Method)\n\n**Why it's perfect for you:** Radish is the fastest microgreen option (5-7 days) and incredibly beginner-friendly. It also supports digestion and circulation. Plus, radish is spicy and flavorful, making it easy to add to salads and meals. If your mom wants something she can harvest and eat within a week, this is it.\n\n**Key nutrients:** Digestive enzymes, Vitamin A, B, C, E; supports healthy blood flow\n\n**Difficulty:** Beginner\n\n**Time to harvest:** 5-7 days\n\n**Form:** Microgreen (tray method)\n\n**Setup:** A shallow tray, potting soil, and a spray bottle. That's it.\n\n---\n\n### \ud83c\udf31 #3: Beet Microgreens (Tray Method)\n\n**Why it's perfect for you:** Beets are a secret weapon for blood pressure. They're packed with dietary nitrates \u2014 the exact compound that blood pressure medications mimic. Eating beet microgreens daily can genuinely help lower blood pressure naturally. They're also beautiful and add great color to meals.\n\n**Key nutrients:** Dietary nitrates (proven blood pressure support), betalains (antioxidants), potassium, magnesium\n\n**Difficulty:** Beginner to Intermediate\n\n**Time to harvest:** 10-14 days\n\n**Form:** Microgreen (tray method)\n\n**Setup:** Same as radish \u2014 tray, soil, spray bottle.\n\n---\n\n## Trade-Offs & Recommendations\n\n**Start with #1 (Broccoli Sprouts):** If your mom wants the fastest, easiest, most medicinal option, broccoli sprouts in a jar are unbeatable. She can harvest in 3-4 days with literally no equipment \u2014 just a jar and cheesecloth from her kitchen. This is the \"prove it works\" variety.\n\n**Add #2 (Radish) second:** Once she's comfortable with the jar method, radish microgreens in a tray are still dead simple but give her more yield. They're ready in 5-7 days.\n\n**Rotate with #3 (Beet) for maximum benefit:** Beet microgreens take longer (10-14 days) but are the most powerful for blood pressure. Grow them alongside the faster varieties so she's harvesting something new every few days.\n\n---\n\n## Stage 3: Where to Buy Seeds & Equipment\n\n### Seeds: Your Best Options\n\n**For Broccoli Sprouts:**\n\n| | Option A (Cheapest) | Option B (Fastest Shipping) |\n|---|---|---|\n| **Vendor** | Organo Republic | Amazon (Rainbow Heirloom Seed Co.) |\n| **Price** | ~$12-15/1lb | ~$10-12/1lb |\n| **Shipping** | 3-5 days | 1-2 days Prime |\n| **Link** | [Organo Republic Broccoli](https://organorepublic.com/products/broccoli-sprouting-microgreens-seeds-non-gmo-heirloom-sprout-seeds-kit-in-bulk-1lb-resealable-bag-for-planting-growing-microgreens-in-soil-coconut-coir-garden-aerogarden-hydroponic-system) | [Amazon Broccoli Seeds](https://www.amazon.com/Microgreens-Heirloom-Seed-Rainbow-Co/dp/B07R1MB53T) |\n| **Notes** | Over 130,000 seeds; bulk best value | Waltham 29 variety; arrives faster |\n\n**For Radish Microgreens:**\n\n| | Option A (Cheapest) | Option B (Fastest Shipping) |\n|---|---|---|\n| **Vendor** | Organo Republic | True Leaf Market |\n| **Price** | $14.39/1lb | ~$15-18/packet |\n| **Shipping** | 3-5 days | 1-3 days |\n| **Link** | [Organo Republic Radish](https://organorepublic.com/products/radish-sprouting-microgreen-seeds-non-gmo-heirloom-sprout-seeds-kit) | [True Leaf Market Radish](https://trueleafmarket.com/products/radish-sprouting-daikon-organic-seeds) |\n| **Notes** | Enough for ~20 trays (~$0.75 per tray) | Wide variety selection; fast shipping |\n\n**For Beet Microgreens:**\n\n| | Option A (Cheapest) | Option B (Fastest Shipping) |\n|---|---|---|\n| **Vendor** | Organo Republic or Sow Right Seeds | True Leaf Market |\n| **Price** | ~$15-18/1lb | ~$8-12/packet |\n| **Shipping** | 3-5 days | 1-3 days |\n| **Link** | [Organo Republic](https://organorepublic.com) or [Sow Right Seeds](https://sowrightseeds.com) | [True Leaf Market](https://trueleafmarket.com) |\n| **Notes** | Bulk seeds = best value for long-term growing | Smaller packets; no waste if just starting |\n\n**Bottom line:** If your mom wants to save money and is willing to wait a few days, go with **Organo Republic** for bulk seeds \u2014 she'll get enough seeds to grow dozens of trays for under $50. If she wants to start TODAY, order from **Amazon** or **True Leaf Market** for next-day/2-day shipping.\n\n---\n\n### Equipment: The Simplest, Most Affordable Setup\n\n#### Option 1: Absolute Minimum (Broccoli Sprouts Only) \u2014 ~$10-15\n\nYour mom probably already has most of this at home:\n- 1 Mason jar (any size, she probably has one)\n- Cheesecloth or fine mesh from a hardware store ($2-3)\n- Water (tap water is fine)\n- A rubber band (free)\n\n**That's it.** Total cost: under $15 for supplies that will last years.\n\n#### Option 2: Beginner Tray Setup (For Radish & Beet) \u2014 ~$35-50\n\nIf she wants to grow microgreens in trays (to get more yield and variety):\n\n- 2x Bootstrap Farmer 10x20 trays (one with drainage holes, one solid): ~$15-20\n  - [Bootstrap Farmer](https://bootstrapfarmer.com) or [Amazon](https://www.amazon.com)\n- 1 bag potting soil or coco coir (5-10 quarts): ~$8-12\n  - Buy locally at a garden center or hardware store\n- 1 fine mist spray bottle: ~$5-8\n  - Any hardware or garden store\n- Optional: Simple grow light (LED shop light, ~$25-35)\n  - Only needed if she doesn't have a sunny south-facing window\n\n**Total: $35-50 for a complete beginner setup that will last for years of growing.**\n\n#### Option 3: All-in-One Starter Kit (Easiest for Non-Tech Users) \u2014 ~$60-100\n\nIf your mom wants something that comes with everything and clear instructions, consider:\n\n- [Hamama Microgreens Kit](https://www.hamama.com/products/microgreens-kit) \u2014 ~$60-80\n- [Back to the Roots Variety 3-Pack](https://backtotheroots.com/products/microgreen-grow-kit-variety-3-pack) \u2014 ~$50-70\n- [HOSS Microgreen Starter Kit](https://growhoss.com/products/microgreens-starter-kit) \u2014 ~$70-90\n- [High Mowing Seeds Kitchen Starter Kit](https://www.highmowingseeds.com/microgreens-kitchen-starter-kit.html) \u2014 ~$65-85\n\nThese kits come with:\n- Pre-measured trays and growing mats\n- Some include seed packets\n- Simple illustrated instructions\n- Everything ready to go \u2014 just add water\n\n**My recommendation for your mom:** If she's hesitant about doing it \"from scratch,\" a beginner kit removes all guesswork. If she's willing to follow simple steps, the ~$40 DIY option gives her way more flexibility and longer-term savings.\n\n---\n\n### Where to Get Everything at the Lowest Total Cost\n\n**Cheapest overall approach:**\n1. Order seeds from **Organo Republic** (bulk, ~$15-30 for all three varieties)\n2. Buy trays and potting soil from **local hardware store or garden center** (cheaper than shipping)\n3. Order spray bottle from **Amazon** (~$5)\n4. Mason jars \u2014 use what you have at home\n\n**Total cost to get started: $50-60 for a setup that will produce 100+ days of fresh, nutrient-dense microgreens.**\n\n---\n\n## Stage 4: Step-by-Step Growing Instructions\n\n### \ud83c\udf31 METHOD 1: BROCCOLI SPROUTS (Jar Method) \u2014 START HERE\n\nThis is the easiest way to start. Your mom can do this with items already in her kitchen.\n\n#### What You Need:\n- 1 Mason jar (quart size is perfect)\n- Cheesecloth or fine mesh\n- Rubber band\n- Broccoli seeds (2 tablespoons)\n- Water\n\n#### Day-by-Day Timeline:\n\n```\nDAY 0 (Evening)\n\u2514\u2500 Measure 2 tablespoons of broccoli seeds\n\u2514\u2500 Rinse them thoroughly in the jar\n\u2514\u2500 Cover with cheesecloth, secure with rubber band\n\u2514\u2500 Fill jar with 1 cup of water, let soak overnight (8-12 hours)\n\nDAY 1 (Morning)\n\u2514\u2500 Drain water completely (keep cheesecloth on)\n\u2514\u2500 Fill jar with fresh water, drain again\n\u2514\u2500 Invert jar at a 45-degree angle in a bowl or on a dish rack\n\u2514\u2500 This allows air to circulate and water to drain\n\u2514\u2500 Place in a dark cabinet or cover with a towel\n\u2514\u2500 Rinse and drain again in the evening\n\nDAY 2\n\u2514\u2500 Small white tails visible on seeds\n\u2514\u2500 Continue rinsing and draining twice daily (morning and evening)\n\u2514\u2500 Keep in dark location\n\nDAY 3\n\u2514\u2500 Sprouts are 0.5\u20131 inch long\n\u2514\u2500 Tails are visible and healthy-looking\n\u2514\u2500 Your mom can now move jar to indirect light if she wants\n\u2514\u2500 Continue rinsing twice daily\n\nDAY 3-4 (HARVEST WINDOW) \u2b50 READY TO EAT\n\u2514\u2500 White tails are \u00bd\u20131 inch long\n\u2514\u2500 This is peak sulforaphane (the heart-healthy compound)\n\u2514\u2500 Taste a sprout \u2014 it should be mild, fresh, slightly spicy\n\u2514\u2500 Rinse one final time\n\u2514\u2500 Pat dry with a clean paper towel\n\u2514\u2500 Ready to eat!\n```\n\n#### Daily Care:\n\n**Rinsing (Most Important Step):**\n- Do this twice a day (morning and evening) \u2014 takes 1 minute\n- Fill jar with cool water, swish gently, drain completely\n- Make sure NO water sits in the jar (prevents mold)\n- Use filtered water if possible; tap water is fine\n\n**Light:**\n- Keep in darkness for first 3 days (speeds germination)\n- After day 3, indirect light is fine (not required)\n\n**Temperature:**\n- Room temperature (65-75\u00b0F) is perfect\n- Avoid direct heat sources\n\n**Signs of Healthy Growth:**\n- White tails emerging (day 2)\n- Pale/white color is normal\n- Sprouting evenly\n- No smell (if it smells bad, there's mold \u2014 start over with clean jar)\n\n**Signs of Problems:**\n- Bad smell = mold (discard and start over)\n- Slime or fuzz = too much moisture (drain more thoroughly)\n- No germination by day 2 = seeds were old (buy fresh seeds)\n\n#### Harvest & Storage:\n\n**How to harvest:**\n- Rinse sprouts one final time\n- Pat dry with paper towel (important to prevent mold in storage)\n- Use immediately or store\n\n**Storage:**\n- Place in clean jar with loose lid (not airtight)\n- Refrigerate\n- Lasts 5-7 days\n- Rinse again before eating\n\n**How to eat:**\n- Add to salads (raw is best to preserve sulforaphane)\n- Add to sandwiches\n- Blend into smoothies\n- Add to stir-fries (quick cook)\n- Target: 1-2 tablespoons per day for heart health\n\n---\n\n### \ud83c\udf31 METHOD 2: RADISH MICROGREENS (Tray Method) \u2014 FAST & BEAUTIFUL\n\nOnce your mom is comfortable with the jar method, this is the next step. Radish is the fastest microgreen and incredibly forgiving for beginners.\n\n#### What You Need:\n- 10x20 tray with drainage holes\n- 10x20 solid tray (to catch water)\n- Potting soil or coco coir\n- Spray bottle\n- Radish seeds (1.5 oz per tray)\n\n#### Day-by-Day Timeline:\n\n```\nDAY 0 (Setup Day)\n\u2514\u2500 Fill bottom (solid) tray with 1-1.5 inches of moistened potting soil\n\u2514\u2500 Spread evenly\n\u2514\u2500 Place drainage tray on top\n\u2514\u2500 Soak radish seeds for 4-6 hours in a bowl of water\n\u2514\u2500 After soaking, drain and spread seeds evenly on soil surface\n\u2514\u2500 Mist generously with spray bottle\n\u2514\u2500 Cover entire tray with humidity dome, another tray, or plastic wrap\n\u2514\u2500 Place in a warm spot (not in direct light yet)\n\nDAY 1-3 (BLACKOUT PHASE \u2014 Keep Covered)\n\u2514\u2500 This is the dark period \u2014 seeds are germinating\n\u2514\u2500 Check moisture daily (soil should feel moist, not soggy)\n\u2514\u2500 Mist lightly if surface looks dry\n\u2514\u2500 Seeds are tiny, so they don't need much water\n\u2514\u2500 Stems are growing upward, still pale/white\n\nDAY 3-4 (Remove Cover)\n\u2514\u2500 Lift the cover/dome\n\u2514\u2500 You'll see 1-2 inch pale stems with tiny leaves starting to appear\n\u2514\u2500 Move tray to a window (south-facing is best) or under a grow light\n\u2514\u2500 Light should be 12-16 hours per day\n\u2514\u2500 Distance from grow light: 2-4 inches\n\nDAY 4-5 (Greening Phase Begins)\n\u2514\u2500 Stems and leaves are turning green\n\u2514\u2500 This means chlorophyll is developing\n\u2514\u2500 Water from below: Pour water into the solid tray underneath\n\u2514\u2500 The soil will absorb water from the bottom\n\u2514\u2500 Water once daily or when top inch of soil feels dry\n\nDAY 5-7 (HARVEST WINDOW) \u2b50 READY TO EAT\n\u2514\u2500 Cotyledons (first seed leaves) fully open and bright green\n\u2514\u2500 Microgreens are 1.5-2 inches tall\n\u2514\u2500 Stems have turned vibrant green with purple-tinged edges\n\u2514\u2500 Taste test: spicy, peppery radish flavor\n\u2514\u2500 Ready to harvest!\n```\n\n#### Daily Care:\n\n**Watering:**\n- First 3 days (blackout): Mist lightly 1x daily\n- After day 4: Water from below 1x daily\n- Soil should be moist but NOT waterlogged (causes mold)\n- Squeeze soil in your hand \u2014 it should hold together but not drip\n\n**Light (after uncovering):**\n- 12-16 hours per day of bright light\n- Natural south-facing window works\n- OR use an LED grow light 2-4 inches above\n\n**Temperature:**\n- 60-75\u00b0F is ideal\n- Radish is forgiving with temperature\n\n**Airflow:**\n- Once uncovered, make sure air can circulate (prevents mold)\n- Keep lid off completely\n\n**Signs of Healthy Growth:**\n- Day 1-2: Seeds germinating (pale stems emerging)\n- Day 3-4: Stems 1-2 inches, yellow-white color\n- Day 4-5: Stems turning green\n- Day 5-7: Bright green, fully opened leaves, purple-tinted stems\n\n**Red Flags:**\n- Moldy smell or visible fuzz = too wet (improve ventilation, water less)\n- Leggy/tall and pale after day 4 = not enough light (move closer to light)\n- Seeds not germinating by day 2 = too dry (mist more) or seeds are old\n\n#### Harvest & Storage:\n\n**How to harvest:**\n- Use clean scissors or a knife\n- Cut just above the soil line\n- Rinse gently in a colander\n- Pat dry with paper towels (removes excess moisture)\n\n**Yield:**\n- One 10x20 tray produces 1-2 cups of radish microgreens\n\n**Storage:**\n- Spin dry or pat dry very well\n- Place in airtight container with paper towel to absorb moisture\n- Refrigerate\n- Lasts 5-7 days\n\n**How to eat:**\n- Fresh in salads (spicy kick!)\n- On sandwiches\n- In wraps\n- Adds flavor to soups (add at the end to preserve nutrients)\n\n---\n\n### \ud83c\udf31 METHOD 3: BEET MICROGREENS (Tray Method) \u2014 MOST POWERFUL FOR BLOOD PRESSURE\n\nBeet microgreens take a bit longer (10-14 days) but are WORTH IT for heart health. The dietary nitrates in beets directly support healthy blood pressure. Grow these alongside radish for continuous harvests.\n\n#### What You Need:\n- 10x20 tray with drainage holes\n- 10x20 solid tray\n- Potting soil or coco coir\n- Spray bottle\n- Beet seeds (1-1.25 oz per tray)\n\n#### Day-by-Day Timeline:\n\n```\nDAY 0 (Setup)\n\u2514\u2500 Prepare trays same as radish method\n\u2514\u2500 Fill bottom tray with 1.5 inches of moistened soil\n\u2514\u2500 Soak beet seeds for 4 hours in water\n\u2514\u2500 Note: Beet seeds are larger and need more soaking than radish\n\u2514\u2500 Spread evenly on soil\n\u2514\u2500 Mist thoroughly\n\u2514\u2500 Cover with humidity dome/plastic wrap\n\u2514\u2500 Keep in warm, dark location\n\nDAY 1-4 (BLACKOUT PHASE)\n\u2514\u2500 Dark period for germination\n\u2514\u2500 Check soil moisture daily\n\u2514\u2500 Seeds are large, so they're more forgiving about drying out\n\u2514\u2500 Mist lightly if surface looks dry\n\nDAY 4-5 (Remove Cover)\n\u2514\u2500 Remove cover\n\u2514\u2500 You'll see stems 1-2 inches tall, pale/white\n\u2514\u2500 Move to bright light or window\n\u2514\u2500 Light: 12-16 hours per day\n\nDAY 5-8 (Greening Phase)\n\u2514\u2500 Stems and leaves turning green\n\u2514\u2500 Begin bottom watering daily\n\u2514\u2500 Soil should stay moist, not soggy\n\nDAY 8-14 (HARVEST WINDOW) \u2b50 READY TO EAT\n\u2514\u2500 Cotyledons fully open and bright green\n\u2514\u2500 Microgreens are 2-3 inches tall\n\u2514\u2500 Beautiful magenta/red undersides on leaves\n\u2514\u2500 Mild, earthy beet flavor\n\u2514\u2500 Ready to harvest!\n\u2514\u2500 Can harvest as early as day 10, or wait until day 14 for maximum nutrients\n```\n\n#### Important Notes:\n\n**Beet-Specific Tips:**\n- Takes longer than radish (10-14 days vs. 5-7 days) but MUCH more powerful for blood pressure\n- Seeds are larger and need full 4-hour soak\n- Beets prefer soil-based growing (more stable moisture)\n- The red/magenta color on leaf undersides = betalains (antioxidants + heart health)\n\n**Watering:**\n- Keep soil consistently moist during blackout phase\n- Water from below after uncovering\n- Beets need steady moisture \u2014 don't let soil dry out\n\n**Temperature:**\n- 60-75\u00b0F is ideal\n- Beets are a bit slower in cold, faster in warmth\n\n#### Harvest & Storage:\n\n**Harvest:**\n- Cut just above soil line with clean scissors\n- Rinse gently\n- Pat completely dry\n\n**Storage:**\n- Airtight container with paper towel\n- Refrigerate\n- Lasts 5-7 days\n\n**How to eat:**\n- Raw in salads (best for preserving nitrates)\n- Blended into smoothies (reduces \"earthy\" taste)\n- Mixed with other greens\n- Quick saut\u00e9 (1 minute max)\n\n---\n\n## Simple Growth Timeline: Growing All Three Together\n\nYour mom doesn't have to choose just one. Here's how she can grow all three varieties and have a continuous harvest:\n\n```\nWEEK 1:\n\u2514\u2500 Start: Broccoli jar (days 0-4, harvest by day 4)\n\u2514\u2500 Start: Radish tray (days 0-7, harvest by day 7)\n\nWEEK 2:\n\u2514\u2500 Start: Beet tray (days 0-14, harvest by day 10-14)\n\u2514\u2500 Harvest: Broccoli jar #1 (day 4)\n\u2514\u2500 Start: Broccoli jar #2 (so she has a continuous cycle)\n\u2514\u2500 Harvest: Radish tray #1 (day 7)\n\u2514\u2500 Start: Radish tray #2\n\nWEEK 3:\n\u2514\u2500 Continue cycling jars of broccoli (4-day cycle)\n\u2514\u2500 Harvest radish tray #2, start radish tray #3\n\u2514\u2500 Beet tray still growing\n\nWEEK 4:\n\u2514\u2500 Harvest beet tray (day 10-14)\n\u2514\u2500 Start new beet tray\n\u2514\u2500 Continuous supply of all three!\n```\n\n**Result:** Your mom will have fresh microgreens harvested every 3-4 days without much effort.\n\n---\n\n## Troubleshooting Common Problems\n\n### Problem: Mold or Bad Smell\n\n**Cause:** Usually too much moisture or poor airflow\n\n**Fix:**\n- Drain more thoroughly after rinsing\n- Improve ventilation (crack open dome, use a fan)\n- Use filtered water if tap water is high in chlorine\n- Discard affected batch and start over with clean equipment\n\n### Problem: Seeds Not Germinating\n\n**Cause:** Old seeds, too dry, or wrong temperature\n\n**Fix:**\n- Buy fresh seeds (check expiration date)\n- Keep soil moist (not soggy)\n- Ensure room temperature (65-75\u00b0F)\n- Increase soak time by 2-3 hours\n\n### Problem: Pale, Leggy Sprouts (Too Tall, Too Thin)\n\n**Cause:** Not enough light during growing phase\n\n**Fix:**\n- Move closer to window or grow light\n- Increase light to 14-16 hours per day\n- If using grow light, place 2-3 inches above microgreens\n\n### Problem: Slow Growth\n\n**Cause:** Temperature too cold or old seeds\n\n**Fix:**\n- Move to warmer location (aim for 70\u00b0F)\n- Buy fresh seeds\n- Ensure consistent moisture\n- Check that light is adequate\n\n### Problem: Damping Off (Seedlings Falling Over)\n\n**Cause:** Fungal issue from overwatering and poor airflow\n\n**Fix:**\n- Reduce watering (soil should be moist, not waterlogged)\n- Remove dome/cover to increase air circulation\n- Ensure tray is not sitting in standing water\n- Clean all equipment before next batch\n\n---\n\n## Shopping Checklist for Your Mom\n\n### To Get Started TODAY (for under $15):\n- [ ] 1 Mason jar (check kitchen first!)\n- [ ] Cheesecloth ($2-3)\n- [ ] Broccoli seeds from Amazon or local garden store\n\n### For Microgreens (Tray Method) \u2014 Add ~$35-50:\n- [ ] 2x 10x20 trays (~$15-20)\n- [ ] Potting soil or coco coir (~$8-12)\n- [ ] Spray bottle (~$5-8)\n- [ ] Seeds: Radish and Beet (~$15-20)\n\n### Optional (But Recommended):\n- [ ] LED grow light (~$25-40) \u2014 if no sunny south-facing window\n- [ ] Humidity dome (~$5-10)\n\n---\n\n## Heart Health Eating Guide\n\n### Daily Target:\n- 1-2 tablespoons of microgreens per day for heart health benefits\n- Mix varieties for maximum nutrients\n\n### How to Add to Meals:\n\n**Breakfast:**\n- Scrambled eggs with broccoli sprouts\n- Oatmeal topped with radish microgreens\n- Smoothie with beet microgreens blended in\n\n**Lunch:**\n- Salad with all three varieties\n- Sandwich with broccoli sprouts\n- Wrap with radish and beet microgreens\n\n**Dinner:**\n- Top soups with microgreens (add at end)\n- Side salad with fresh microgreens\n- Stir-fry with radish microgreens (quick cook)\n\n**Storage Note:** Keep harvested microgreens in an airtight container with a paper towel in the fridge \u2014 they'll last 5-7 days.\n\n---\n\n## Timeline to First Harvest\n\n| Goal | Days | Method |\n|------|------|--------|\n| First taste (broccoli sprouts) | 3-4 days | Jar |\n| First real harvest (radish) | 5-7 days | Tray |\n| Maximum heart health impact (beet) | 10-14 days | Tray |\n\n**Your mom can have her first harvest in just 3-4 days.** That's how fast and simple this is.\n\n---\n\n## Final Encouragement\n\nGrowing microgreens for heart health is one of the most empowering things your mom can do. She's not just growing food \u2014 she's growing medicine. Every 4-6 ounces of microgreens contains the nutrient density of 1-2 pounds of mature vegetables.\n\nThe best part? It costs less than a salad and takes about 5 minutes a day of actual work (mostly just misting and watering).\n\n**Your mom's got this.** She can do this.\n\nStart with the broccoli sprouts in the jar. If that goes well, add the radish tray. Once she's comfortable, add the beets. Before you know it, she'll have a simple rotation going that produces fresh, nutrient-dense microgreens every single day.\n\nFeel free to reach out if she has questions along the way. Microgreens are incredibly forgiving \u2014 they want to grow!\n\n---\n\n## Recommended Vendors (For Easy Ordering)\n\n**Seeds:**\n- [True Leaf Market](https://trueleafmarket.com) \u2014 Wide selection, fast shipping (1-3 days)\n- [Organo Republic](https://organorepublic.com) \u2014 Best bulk pricing, standard shipping (3-5 days)\n- [Sow Right Seeds](https://sowrightseeds.com) \u2014 Non-GMO, beginner-friendly\n\n**Equipment:**\n- [Bootstrap Farmer](https://bootstrapfarmer.com) \u2014 Professional quality trays\n- [Amazon](https://www.amazon.com) \u2014 Fastest shipping, \"microgreens starter kit\" search\n- Local garden center or hardware store \u2014 Trays, soil, spray bottles (no shipping!)\n\n**Beginner Starter Kits:**\n- [Hamama Microgreens Kit](https://www.hamama.com/products/microgreens-kit) \u2014 Most beginner-friendly\n- [Back to the Roots 3-Pack](https://backtotheroots.com/products/microgreen-grow-kit-variety-3-pack) \u2014 Great variety\n- [High Mowing Seeds Kitchen Kit](https://www.highmowingseeds.com/microgreens-kitchen-starter-kit.html) \u2014 All-in-one\n\n---\n\n## Additional Resources\n\nAll the information in this guide comes from evidence-based nutrition research and decades of microgreens growing experience. The varieties recommended are specifically selected for their heart-health benefits and beginner-friendly growing profiles.\n\nYour mom is taking a wonderful step toward better heart health. Microgreens are powerful, affordable, and genuinely life-changing. This is something she can be proud of.\n\nHappy growing!\n"}], "grading": {"eval_id": 2, "eval_name": "heart-health-elderly-beginner", "run_type": "with_skill", "expectations": [{"text": "recommends_heart_health_varieties", "passed": true, "evidence": "Response recommends all appropriate varieties: #1 Broccoli Sprouts ('sulforaphane, a powerful compound that reduces arterial inflammation \u2014 the root cause of high blood pressure and heart disease'), #2 Radish Microgreens ('supports digestion and circulation'), #3 Beet Microgreens ('Beets are a secret weapon for blood pressure. They're packed with dietary nitrates \u2014 the exact compound that blood pressure medications mimic')."}, {"text": "recommends_beginner_friendly_options", "passed": true, "evidence": "Response explicitly labels difficulty levels and recommends beginner options: Broccoli Sprouts marked 'Difficulty: Beginner' with 'Jar method \u2014 simplest possible,' Radish marked 'Difficulty: Beginner' with 'fastest microgreen option (5-7 days) and incredibly beginner-friendly.' Response emphasizes these are 'dead simple' and 'zero complicated equipment.'"}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides exactly 3 varieties in Stage 2: #1 Broccoli Sprouts (Jar Method), #2 Radish Microgreens (Tray Method), #3 Beet Microgreens (Tray Method). Each with distinct sections."}, {"text": "provides_vendor_options", "passed": true, "evidence": "Response provides detailed vendor tables for each variety. Broccoli lists Organo Republic and Amazon with pricing ($12-15 and $10-12). Radish lists Organo Republic and True Leaf Market. Beet lists Organo Republic/Sow Right Seeds and True Leaf Market. Multiple vendors with specific links and shipping information provided."}, {"text": "includes_step_by_step_instructions", "passed": true, "evidence": "Response provides comprehensive step-by-step instructions for all three varieties. Broccoli Sprouts includes detailed 'Day-by-Day Timeline' from DAY 0-4 with specific actions. Radish Microgreens includes 'Day-by-Day Timeline' from DAY 0-7. Beet Microgreens includes 'Day-by-Day Timeline' from DAY 0-14. All with clear daily actions and checkpoints."}, {"text": "appropriate_tone_for_situation", "passed": true, "evidence": "Response demonstrates warm, supportive tone while avoiding alarmism. Opens with 'Hello! I'm so glad your mom is taking steps to support her heart health.' Acknowledges the health context without fear-mongering. Uses encouraging language throughout ('You've got this!' and 'Microgreens are incredibly forgiving'). Final section titled 'Final Encouragement' reinforces that mother can succeed at this."}], "pass_rate": 1.0, "notes": "Outstanding response that comprehensively meets all assertions. Expertly tailors content for elderly, non-tech-savvy audience with warm, encouraging tone. Provides multiple heart-health specific varieties with clear physiological explanations (nitrates, sulforaphane, inflammation). Day-by-day timelines are extremely detailed and beginner-appropriate. Vendor options acknowledge cost concerns. Strong focus on simplicity and accessibility without sacrificing medical accuracy."}}, {"id": "eval-2-heart-health-beginner-without_skill", "prompt": "My mom was just diagnosed with high blood pressure and we want to start eating better at home. We heard microgreens might help. She's 68, not very tech-savvy and doesn't want anything complicated. We want to know what to grow, where to get stuff, and exactly how to do it step by step.", "eval_id": 2, "outputs": [{"name": "response.md", "type": "text", "content": "# Microgreens for Heart Health: A Complete Beginner's Guide for Your Mom\n\n## Introduction\n\nMicrogreens are an excellent way to support better heart health! These tiny greens are packed with nutrients and can be grown right on a kitchen counter with minimal effort. This guide is designed to be simple and straightforward for someone who isn't tech-savvy.\n\n---\n\n## Part 1: Best Microgreens for Heart Health & Blood Pressure\n\nYour mom should focus on these varieties, all known to support cardiovascular health:\n\n### Top Varieties for Heart Health\n\n**Red Cabbage Microgreens** (BEST CHOICE)\n- Studies show they lower \"bad\" LDL cholesterol and reduce inflammation\n- Contain 6 times more vitamin C than mature cabbage\n- Rich in polyphenols that fight oxidative stress\n- Takes about 10-14 days to harvest\n\n**Broccoli Microgreens**\n- Contains more sulforaphane (powerful anti-inflammatory) than mature broccoli\n- High in minerals like potassium and magnesium (both help regulate blood pressure)\n- Takes about 10-12 days to harvest\n\n**Pea Microgreens**\n- Very high in potassium, which helps regulate blood pressure\n- Sweet and easy to eat\n- Takes about 10-14 days to harvest\n\n**Arugula Microgreens**\n- High antioxidant content for heart health\n- Adds nice flavor to meals\n- Takes about 8-10 days to harvest\n\n**Radish Microgreens**\n- Strong cardiovascular benefits from high antioxidant content\n- Peppery flavor, very tasty\n- Takes about 8-10 days to harvest\n\n### Why Microgreens Work\n\nMicrogreens are 4-40 times more nutrient-dense than their mature plant counterparts because they're harvested at their nutritional peak\u2014right after sprouting. They're rich in polyphenols (antioxidants) that help reduce inflammation, lower blood pressure, and reduce \"bad\" cholesterol.\n\n---\n\n## Part 2: Where to Buy Seeds & Equipment (With Prices & Delivery)\n\n### EASIEST & CHEAPEST OPTION: Start Simple\n\n**Recommended for your mom:** Buy one basic kit to start, then expand if she likes it.\n\n#### Option A: Buy Pre-Made Kits (Easiest)\n\n**True Leaf Market Microgreens Kits**\n- Website: https://trueleafmarket.com/collections/micro-greens-planting-seed\n- Kits include seeds + everything needed\n- Prices: Usually $15-35 per kit\n- Shipping: Fast, typically 5-7 business days\n- Best for: Someone who wants everything in one box\n\n#### Option B: Buy Seeds & Basic Supplies Separately (Cheapest Long-Term)\n\n**Johnny's Selected Seeds** (Best all-in-one source)\n- Website: https://www.johnnyseeds.com/vegetables/microgreens/\n- Seed packets: $3-8 per variety\n- Growing supplies available: trays, potting soil, tools\n- Free shipping on orders over $200 (or small fee for smaller orders)\n- Shipping: 5-10 business days\n- Why choose: Great selection, reliable quality\n\n**True Leaf Market** (Budget-friendly variety)\n- Website: https://trueleafmarket.com/collections/micro-greens-planting-seed\n- 300+ microgreens seed varieties\n- Non-GMO and organic options available\n- Competitive pricing\n- Shipping: 5-7 business days\n- Why choose: Wide selection, good prices, organic options\n\n**High Mowing Organic Seeds** (If organic matters most)\n- Website: https://www.highmowingseeds.com/vegetables/microgreens.html\n- Certified organic seeds\n- Prices slightly higher ($8-12 per packet)\n- Shipping: 5-10 business days\n- Why choose: Best for organic-only preference\n\n### Complete Beginner Supplies Checklist & Costs\n\n**MINIMUM SETUP (Under $30 to start):**\n- 1 shallow tray or pie tin: $0 (use something from home)\n- Potting soil (small bag): $5-8\n- Microgreens seeds (2-3 varieties): $9-15\n- Spray bottle for misting: $2-4\n- **Total: $16-27**\n\n**NICE BEGINNER SETUP (Under $75):**\n- 2-3 shallow trays designed for microgreens: $20-30\n- Good quality potting soil (larger bag): $10-15\n- Seeds for 4-5 varieties: $15-20\n- Spray bottle: $3-5\n- Optional: Small grow light: $20-40\n- **Total: $48-75**\n\n**Where to buy supplies:**\n- Potting soil: Local garden centers, Home Depot, Lowe's, or Amazon ($8-15 for 8-10 quarts)\n- Trays: True Leaf Market, Johnny's, or Amazon ($10-20 for sets of 2)\n- Spray bottle: Dollar stores, hardware stores ($2-5)\n- Grow light (optional): Amazon, Home Depot ($25-50 for basic LED)\n\n---\n\n## Part 3: Step-by-Step Growing Instructions (Simple Version)\n\n**Time to first harvest: 8-14 days depending on variety**\n\n### What You'll Need\n- A shallow tray or container (pie tin works great!)\n- Potting soil (or coconut coir\u2014NOT garden soil)\n- Microgreen seeds\n- Water\n- Spray bottle or misting bottle\n- Scissors\n- A place with some light (windowsill is perfect)\n\n### The 7 Steps\n\n**STEP 1: Soak the Seeds (Evening before planting)**\n- Put seeds in a bowl\n- Cover with water\n- Let sit for 8-12 hours overnight\n- Rinse well in running water 2-3 times\n- Drain completely\n\n**STEP 2: Prepare Your Container**\n- Fill tray with 1-2 inches of moist potting soil\n- Press down gently with your hand (don't pack hard)\n- The soil should be damp, not soaking wet\n\n**STEP 3: Plant the Seeds**\n- Spread soaked seeds evenly over the soil\n- Cover most of the soil surface, but don't pile seeds thick\n- Don't bury them\u2014just spread them on top\n- Mist lightly with water bottle\n\n**STEP 4: Dark & Moist (Days 1-3)**\n- Cover tray with a dark cloth, newspaper, or cardboard box\n- This keeps seeds warm and moist while they germinate\n- Check daily: soil should feel moist (like a wrung-out sponge)\n- Mist gently if soil looks dry\n- Don't water from above\u2014this can cause mold. Mist gently or water from underneath.\n- After 2-3 days, you should see tiny green sprouts appearing\n\n**STEP 5: Move to Light (Day 4 onwards)**\n- Remove the dark cover once you see green shoots\n- Move tray to a bright windowsill or under a grow light\n- Indirect sunlight is best (window shade is fine)\n- If using a grow light, keep it 4-6 inches above the plants\n- Leave lights on for 12-16 hours per day\n\n**STEP 6: Keep Soil Moist (Days 4-10)**\n- Check soil every day\u2014it should stay moist, never soggy\n- Mist lightly once daily, usually in the morning\n- Water from underneath when possible (put tray in a shallow pan of water for a few minutes)\n- Stop if you see any mold appearing (this means too much moisture)\n\n**STEP 7: Harvest When They're 1-2 Inches Tall (Days 8-14)**\n- Microgreens are ready when they have their first \"true leaves\" (the second set of leaves)\n- They should be about 1-2 inches tall\n- Grab a cluster of stems at the base\n- Cut with sharp scissors just above the soil\n- Rinse gently under cool water\n- Eat immediately or store in the fridge for up to 5 days in an airtight container\n\n### Beginner-Friendly Varieties to Start With\n\n**EASIEST to grow:**\n1. Radish (fastest, ready in 8 days)\n2. Mustard (ready in 8-10 days)\n3. Arugula (ready in 8-10 days)\n\n**Good for beginners, still easy:**\n4. Broccoli (ready in 10-12 days)\n5. Pea (ready in 10-14 days)\n6. Red Cabbage (ready in 10-14 days)\n\n---\n\n## Part 4: Tips for Success\n\n### Common Problems & Solutions\n\n**Problem: Mold appears on seeds**\n- CAUSE: Too much moisture\n- SOLUTION: Reduce misting, improve air circulation, stop watering temporarily\n\n**Problem: Seeds don't sprout**\n- CAUSE: Old seeds or too dry\n- SOLUTION: Use fresh seeds from reputable supplier, soak longer, check soil moisture daily\n\n**Problem: Pale, weak-looking greens**\n- CAUSE: Not enough light\n- SOLUTION: Move to a brighter windowsill or get a simple grow light ($25-40)\n\n**Problem: It's taking too long**\n- This is normal! Each variety takes different times. Red cabbage takes longer than radish. Be patient.\n\n### Making It Easy for Your Mom\n\n1. **Start with just ONE variety** - Red cabbage or broccoli (best for heart health)\n2. **Use the same tray and soil** - just keep replanting every 2 weeks\n3. **Keep a simple notebook** - write down planting date and harvest date\n4. **Set phone reminders** - one reminder daily to check moisture\n5. **Add to meals easily** - sprinkle on salads, sandwiches, soups right before eating\n\n### Health Serving Suggestions\n\n- Eat a small handful (about 1 ounce) daily with meals\n- Add to salads for crunch\n- Sprinkle on eggs, soups, or sandwiches\n- Blend into smoothies\n- Store in fridge in airtight container for up to 5 days after harvest\n\n---\n\n## Part 5: Budget Summary\n\n**Getting Started:**\n- Minimum investment: $16-27 (using items from home)\n- Nice setup: $48-75\n- Each harvest costs only $3-8 in seeds and soil\n\n**Monthly Cost After Initial Setup:**\n- Seeds: $3-5 per batch\n- Potting soil: $2-3 per batch\n- Fresh microgreens every 2 weeks for about $10-15/month\n\n---\n\n## Quick Reference: What to Order Today\n\n**For the easiest start, order from True Leaf Market (https://trueleafmarket.com/):**\n1. Red Cabbage Microgreens seeds\n2. Broccoli Microgreens seeds\n3. Radish Microgreens seeds\n4. Basic microgreens growing kit (if available) or\n5. 1-2 shallow trays\n6. Small bag of potting soil\n\n**Total should be under $50 with shipping**\n\n**Alternative: Order from Johnny's Selected Seeds (https://www.johnnyseeds.com/vegetables/microgreens/) for possibly lower prices on larger orders.**\n\n---\n\n## Sources\n\n- [WebMD: What Are Microgreens?](https://www.webmd.com/diet/what-to-know-about-microgreens)\n- [Healthline: Microgreens Health Benefits, Nutrition and How to Grow Them](https://www.healthline.com/nutrition/microgreens)\n- [Cleveland Clinic: 6 Health Benefits of Microgreens](https://health.clevelandclinic.org/benefits-of-microgreens)\n- [Penn State Extension: A Step-By-Step Guide for Growing Microgreens at Home](https://extension.psu.edu/a-step-by-step-guide-for-growing-microgreens-at-home)\n- [True Leaf Market: Microgreens Seeds Collection](https://trueleafmarket.com/collections/micro-greens-planting-seed)\n- [Johnny's Selected Seeds: Microgreens](https://www.johnnyseeds.com/vegetables/microgreens/)\n- [High Mowing Organic Seeds: Microgreens](https://www.highmowingseeds.com/vegetables/microgreens.html)\n- [Almanac.com: How to Grow Microgreens at Home: A Beginner's Guide](https://www.almanac.com/plant/microgreens)\n- [Feasting At Home: How to Grow Microgreens](https://www.feastingathome.com/how-to-grow-microgreens/)\n- [Bootstrap Farmer: How to Grow Microgreens 101](https://www.bootstrapfarmer.com/blogs/microgreens/how-to-grow-microgreens-101)\n\n---\n\n## Final Thoughts\n\nGrowing microgreens is simple, rewarding, and perfect for someone who wants to improve their diet without complexity. Your mom can start with basic items she may already have at home, spend under $50 to get going, and have fresh, nutrient-rich greens on her table in just 8-14 days. The best microgreens for her heart health are red cabbage and broccoli\u2014both easy to grow and packed with cardiovascular benefits.\n\n**She's got this!**\n"}], "grading": {"eval_id": 2, "eval_name": "heart-health-elderly-beginner", "run_type": "without_skill", "expectations": [{"text": "recommends_heart_health_varieties", "passed": true, "evidence": "Response recommends heart-health appropriate varieties: Red Cabbage Microgreens (BEST CHOICE) for 'lower LDL cholesterol and reduce inflammation,' Broccoli Microgreens 'with minerals like potassium and magnesium (both help regulate blood pressure),' Pea Microgreens 'very high in potassium, which helps regulate blood pressure,' Arugula and Radish for antioxidant content."}, {"text": "recommends_beginner_friendly_options", "passed": true, "evidence": "Response explicitly provides 'Beginner-Friendly Varieties to Start With' section listing: EASIEST varieties (Radish, Mustard, Arugula) marked as 'ready in 8 days/8-10 days' and GOOD FOR BEGINNERS section listing Broccoli (10-12 days), Pea (10-14 days), Red Cabbage (10-14 days)."}, {"text": "provides_3_variety_recommendations", "passed": false, "evidence": "Response recommends 5 varieties, not 3: Red Cabbage (BEST CHOICE), Broccoli, Pea, Arugula, and Radish. Assertion requires 'Exactly 3 varieties' but response provides more than this. While all are appropriate, it doesn't focus on exactly 3."}, {"text": "provides_vendor_options", "passed": true, "evidence": "Response names specific vendors: True Leaf Market (https://trueleafmarket.com/) listed multiple times, Johnny's Selected Seeds (https://www.johnnyseeds.com/), High Mowing Organic Seeds (https://www.highmowingseeds.com/). Provides pricing examples and notes fastest vs. cheapest options."}, {"text": "includes_step_by_step_instructions", "passed": true, "evidence": "Response includes comprehensive 'The 7 Steps' section with detailed instructions: STEP 1 (Soak Seeds), STEP 2 (Prepare Container), STEP 3 (Plant Seeds), STEP 4 (Dark & Moist Days 1-3), STEP 5 (Move to Light Day 4), STEP 6 (Keep Soil Moist Days 4-10), STEP 7 (Harvest Days 8-14). While not strictly day-by-day for each variety, provides clear sequential steps."}, {"text": "appropriate_tone_for_situation", "passed": true, "evidence": "Response demonstrates warm, accessible tone appropriate for elderly, non-tech-savvy user. Uses simple language, acknowledges simplicity of process, provides reassurance ('She's got this!', 'Growing microgreens is simple, rewarding'). Avoids technical jargon and medical alarmism while addressing health context seriously."}], "pass_rate": 0.83, "notes": "Strong response with excellent tone and vendor information suitable for elderly, non-tech-savvy audience. Provides accessible step-by-step instructions and warm encouragement. Primary weakness is recommending 5 varieties instead of exactly 3 as specified in assertion - while all are appropriate for heart health, the lack of focused recommendation dilutes the response for a busy, non-tech-savvy audience who benefits from simplified choices."}}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"metadata": {"skill_name": "sprout-advisor", "skill_path": "<path/to/skill>", "executor_model": "<model-name>", "analyzer_model": "<model-name>", "timestamp": "2026-03-05T23:30:06Z", "evals_run": [0, 1, 2], "runs_per_configuration": 3}, "runs": [{"eval_id": 0, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 6, "failed": 0, "total": 6, "time_seconds": 115.3, "tokens": 46720, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "recommends_broccoli_sprouts_for_inflammation", "passed": true, "evidence": "Response explicitly recommends broccoli sprouts as '#1' variety and states: 'Broccoli sprouts are the gold standard for anti-inflammatory support. They contain sulforaphane, a compound that's been extensively studied for its ability to reduce joint inflammation' and notes '3-day-old broccoli sprouts contain 10-100x more sulforaphane than mature broccoli.'"}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides exactly 3 varieties: (1) Broccoli Sprouts, (2) Red Cabbage Microgreens, (3) Arugula Microgreens, each with dedicated sections clearly labeled with emoji and #1, #2, #3."}, {"text": "includes_vendor_options", "passed": true, "evidence": "Response includes vendor tables with specific names and pricing. For broccoli: Organo Republic ($17.99 for 1lb bulk) and True Leaf Market (~$8-12 standard packet), with direct links provided. Similar tables for red cabbage and arugula include vendor names, pricing, and direct links."}, {"text": "includes_day_by_day_timeline", "passed": true, "evidence": "Response provides detailed day-by-day timeline for Broccoli Sprouts (Jar Method) spanning DAY 0 through DAY 4, with specific instructions for each day including soaking time, rinsing frequency, and harvest window."}, {"text": "budget_appropriate_setup", "passed": true, "evidence": "Response provides two paths: PATH A at $15-26 for absolute minimum (jar sprouting), and PATH B at $19-39 for beginner tray setup, both fitting within $30-40 budget. DIY tray construction from dollar store containers is explicitly explained."}, {"text": "personalized_to_inflammation_goal", "passed": true, "evidence": "Response explicitly connects back to user's inflammation goal in multiple places. Stage 1 states: 'Since you're a beginner with a tight budget ($30-40) and excellent natural light, we'll focus on varieties that are: High in anti-inflammatory compounds.' Each variety section explains anti-inflammatory benefits (sulforaphane for broccoli, anthocyanins for red cabbage, quercetin for arugula) and Anti-Inflammatory Eating Tips section explains how to maximize benefits for joint health."}], "notes": []}, {"eval_id": 1, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 6, "failed": 0, "total": 6, "time_seconds": 105.6, "tokens": 43447, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "recommends_sunflower_or_pea_shoots", "passed": true, "evidence": "Response recommends both varieties prominently. #1 is Sunflower Microgreens, described as 'contain all nine essential amino acids, making them a complete vegan protein source.' #2 is Pea Shoots, described as having 'complete amino acids just like sunflower' and 'exceptional high in B vitamins and iron.'"}, {"text": "mentions_complete_protein", "passed": true, "evidence": "Response explicitly mentions complete proteins for multiple varieties: Sunflower 'contain all nine essential amino acids, making them a complete vegan protein source' and Pea Shoots 'offer complete amino acids.' Later section states 'Sunflower: 2-3 grams protein per ounce; all 9 essential amino acids' and 'Pea shoots: 2-2.5 grams protein per ounce; all 9 essential amino acids.'"}, {"text": "acknowledges_existing_equipment", "passed": true, "evidence": "Response explicitly acknowledges in Stage 3: 'Since you already have your tray and potting mix, I've found the best current vendors for seeds specifically' and in Equipment Summary: 'What you already have: 10x20 tray with drainage holes \u2713, Potting mix \u2713, What you'll need to add: Spray bottle...Mason jar with sprouting lid...Optional: second tray.'"}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides exactly 3 varieties: #1 Sunflower Microgreens, #2 Pea Shoots, #3 Broccoli Sprouts (Jar Method). Each has dedicated section with key nutrients, difficulty level, harvest time, and form."}, {"text": "includes_day_by_day_timeline", "passed": true, "evidence": "Response provides detailed day-by-day timelines for all three varieties. Sunflower has DAY 0-14 timeline, Pea Shoots has DAY 0-12 timeline, and Broccoli Sprouts has DAY 0-4 (peak) and optional extension to DAY 7. Each includes specific daily actions and observable growth markers."}, {"text": "includes_seed_vendor_options", "passed": true, "evidence": "Response includes detailed vendor tables for each variety with specific vendors named: Organo Republic, True Leaf Market, Sow Right Seeds, West Coast Seeds, Food to Live, Johnny's Selected Seeds. All include pricing, shipping times, and direct links to products."}], "notes": []}, {"eval_id": 2, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 6, "failed": 0, "total": 6, "time_seconds": 102.0, "tokens": 44105, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "recommends_heart_health_varieties", "passed": true, "evidence": "Response recommends all appropriate varieties: #1 Broccoli Sprouts ('sulforaphane, a powerful compound that reduces arterial inflammation \u2014 the root cause of high blood pressure and heart disease'), #2 Radish Microgreens ('supports digestion and circulation'), #3 Beet Microgreens ('Beets are a secret weapon for blood pressure. They're packed with dietary nitrates \u2014 the exact compound that blood pressure medications mimic')."}, {"text": "recommends_beginner_friendly_options", "passed": true, "evidence": "Response explicitly labels difficulty levels and recommends beginner options: Broccoli Sprouts marked 'Difficulty: Beginner' with 'Jar method \u2014 simplest possible,' Radish marked 'Difficulty: Beginner' with 'fastest microgreen option (5-7 days) and incredibly beginner-friendly.' Response emphasizes these are 'dead simple' and 'zero complicated equipment.'"}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides exactly 3 varieties in Stage 2: #1 Broccoli Sprouts (Jar Method), #2 Radish Microgreens (Tray Method), #3 Beet Microgreens (Tray Method). Each with distinct sections."}, {"text": "provides_vendor_options", "passed": true, "evidence": "Response provides detailed vendor tables for each variety. Broccoli lists Organo Republic and Amazon with pricing ($12-15 and $10-12). Radish lists Organo Republic and True Leaf Market. Beet lists Organo Republic/Sow Right Seeds and True Leaf Market. Multiple vendors with specific links and shipping information provided."}, {"text": "includes_step_by_step_instructions", "passed": true, "evidence": "Response provides comprehensive step-by-step instructions for all three varieties. Broccoli Sprouts includes detailed 'Day-by-Day Timeline' from DAY 0-4 with specific actions. Radish Microgreens includes 'Day-by-Day Timeline' from DAY 0-7. Beet Microgreens includes 'Day-by-Day Timeline' from DAY 0-14. All with clear daily actions and checkpoints."}, {"text": "appropriate_tone_for_situation", "passed": true, "evidence": "Response demonstrates warm, supportive tone while avoiding alarmism. Opens with 'Hello! I'm so glad your mom is taking steps to support her heart health.' Acknowledges the health context without fear-mongering. Uses encouraging language throughout ('You've got this!' and 'Microgreens are incredibly forgiving'). Final section titled 'Final Encouragement' reinforces that mother can succeed at this."}], "notes": []}, {"eval_id": 0, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.6666666666666666, "passed": 4, "failed": 2, "total": 6, "time_seconds": 51.7, "tokens": 27886, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "recommends_broccoli_sprouts_for_inflammation", "passed": true, "evidence": "Response recommends 'Broccoli Microgreens/Sprouts (BEST CHOICE)' as first option and states: 'Rich in sulforaphane precursors, compounds with strong antioxidant and anti-inflammatory effects. Broccoli sprouts are the best source of sulforaphane among cruciferous vegetables.'"}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides more than 3 varieties. Under 'Top Choices' it lists: (1) Broccoli Microgreens/Sprouts, (2) Alfalfa Sprouts, (3) Radish Microgreens, plus (4) Other Anti-Inflammatory Varieties section mentioning Cabbage microgreens, Kale microgreens, and Mustard greens."}, {"text": "includes_vendor_options", "passed": true, "evidence": "Response lists 8 seed vendors with links: (1) True Leaf Market, (2) Johnny's Selected Seeds, (3) Mumm's Sprouting Seeds, (4) Sow Right Seeds, (5) High Mowing Organic Seeds, (6) Organo Republic, (7) West Coast Seeds, (8) Park Seed. All include direct links."}, {"text": "includes_day_by_day_timeline", "passed": false, "evidence": "Response provides a generic timeline structure ('Germination: 2-3 days, Total growth: 10-14 days, From seed to harvest: Just 1-2 weeks!') but does NOT provide actual day-by-day timeline with specific instructions for any variety. The 'Step-by-Step Growing Instructions' section describes 5 general steps but lacks day-specific details (no 'DAY 0', 'DAY 1', etc. format with specific actions)."}, {"text": "budget_appropriate_setup", "passed": true, "evidence": "Response provides budget-friendly approach: 'Total Cost: $15-25' for minimal equipment needed. Lists 'Essential Items' costing $10-15 for seeds plus $5-10 for potting soil, within $30-40 budget. Also mentions complete kit options ($30-40) as alternative."}, {"text": "personalized_to_inflammation_goal", "passed": false, "evidence": "While response mentions the user's inflammation goal in introduction ('You've mentioned dealing with joint inflammation'), it does not consistently connect back to inflammation management throughout. Most variety descriptions focus on general benefits without explicit inflammation connections. Missing explicit guidance on how to maximize anti-inflammatory benefits for the specific joint inflammation use case."}], "notes": []}, {"eval_id": 1, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.6666666666666666, "passed": 4, "failed": 2, "total": 6, "time_seconds": 46.9, "tokens": 26377, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "recommends_sunflower_or_pea_shoots", "passed": true, "evidence": "Response recommends both: 'Sunflower Microgreens - Protein content: approximately 20%' and 'Pea Microgreens - High protein content, Sweet flavor that blends well into smoothies.'"}, {"text": "mentions_complete_protein", "passed": false, "evidence": "Response provides protein content percentages but does NOT mention complete proteins or essential amino acids. For example, Sunflower lists 'Protein content: approximately 20%' without noting it contains all 9 essential amino acids. Pea Microgreens lists 'High protein content' without specifying complete amino acid profile. Assertion specifically requires mentioning 'complete amino acids or protein content for at least one recommendation.'"}, {"text": "acknowledges_existing_equipment", "passed": true, "evidence": "Response acknowledges existing setup in What You'll Need section: 'You already have: 10x20 tray, Potting mix' and 'You'll also need: Microgreen seeds, Spray bottle for misting, Sharp scissors for harvesting...' Response does not re-recommend basic tray setup from scratch."}, {"text": "provides_3_variety_recommendations", "passed": true, "evidence": "Response provides 6 varieties: Sunflower, Amaranth, Radish, Pea, Buckwheat, Red Clover Microgreens. This exceeds the requirement of exactly 3 varieties. While assertion asks for 'Exactly 3 varieties,' response provides more without focusing specifically on the 3 best options."}, {"text": "includes_day_by_day_timeline", "passed": false, "evidence": "Response provides general harvesting guidance ('Most microgreens are ready in 2-3 weeks from planting') and best practices ('Look for the emergence of the first true leaves (the second set of leaves)') but does NOT provide actual day-by-day or phase-based timeline. No DAY-by-DAY format with specific daily actions for any variety."}, {"text": "includes_seed_vendor_options", "passed": true, "evidence": "Response includes 8 seed vendors with URLs: Johnny's Selected Seeds, True Leaf Market, Sow Right Seeds, High Mowing Organic Seeds, West Coast Seeds, Fedco Seeds, Everywilde, Ferry-Morse."}], "notes": []}, {"eval_id": 2, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.8333333333333334, "passed": 5, "failed": 1, "total": 6, "time_seconds": 49.5, "tokens": 26313, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "recommends_heart_health_varieties", "passed": true, "evidence": "Response recommends heart-health appropriate varieties: Red Cabbage Microgreens (BEST CHOICE) for 'lower LDL cholesterol and reduce inflammation,' Broccoli Microgreens 'with minerals like potassium and magnesium (both help regulate blood pressure),' Pea Microgreens 'very high in potassium, which helps regulate blood pressure,' Arugula and Radish for antioxidant content."}, {"text": "recommends_beginner_friendly_options", "passed": true, "evidence": "Response explicitly provides 'Beginner-Friendly Varieties to Start With' section listing: EASIEST varieties (Radish, Mustard, Arugula) marked as 'ready in 8 days/8-10 days' and GOOD FOR BEGINNERS section listing Broccoli (10-12 days), Pea (10-14 days), Red Cabbage (10-14 days)."}, {"text": "provides_3_variety_recommendations", "passed": false, "evidence": "Response recommends 5 varieties, not 3: Red Cabbage (BEST CHOICE), Broccoli, Pea, Arugula, and Radish. Assertion requires 'Exactly 3 varieties' but response provides more than this. While all are appropriate, it doesn't focus on exactly 3."}, {"text": "provides_vendor_options", "passed": true, "evidence": "Response names specific vendors: True Leaf Market (https://trueleafmarket.com/) listed multiple times, Johnny's Selected Seeds (https://www.johnnyseeds.com/), High Mowing Organic Seeds (https://www.highmowingseeds.com/). Provides pricing examples and notes fastest vs. cheapest options."}, {"text": "includes_step_by_step_instructions", "passed": true, "evidence": "Response includes comprehensive 'The 7 Steps' section with detailed instructions: STEP 1 (Soak Seeds), STEP 2 (Prepare Container), STEP 3 (Plant Seeds), STEP 4 (Dark & Moist Days 1-3), STEP 5 (Move to Light Day 4), STEP 6 (Keep Soil Moist Days 4-10), STEP 7 (Harvest Days 8-14). While not strictly day-by-day for each variety, provides clear sequential steps."}, {"text": "appropriate_tone_for_situation", "passed": true, "evidence": "Response demonstrates warm, accessible tone appropriate for elderly, non-tech-savvy user. Uses simple language, acknowledges simplicity of process, provides reassurance ('She's got this!', 'Growing microgreens is simple, rewarding'). Avoids technical jargon and medical alarmism while addressing health context seriously."}], "notes": []}], "run_summary": {"with_skill": {"pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0}, "time_seconds": {"mean": 107.6333, "stddev": 6.8792, "min": 102.0, "max": 115.3}, "tokens": {"mean": 44757.3333, "stddev": 1731.2673, "min": 43447, "max": 46720}}, "without_skill": {"pass_rate": {"mean": 0.7222, "stddev": 0.0962, "min": 0.6667, "max": 0.8333}, "time_seconds": {"mean": 49.3667, "stddev": 2.4028, "min": 46.9, "max": 51.7}, "tokens": {"mean": 26858.6667, "stddev": 890.2721, "min": 26313, "max": 27886}}, "delta": {"pass_rate": "+0.28", "time_seconds": "+58.3", "tokens": "+17899"}}, "notes": []}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>
