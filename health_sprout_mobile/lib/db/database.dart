@@ -112,14 +112,18 @@ class HealthDatabase {
   }
 
   /// Get latest value for every metric type — used to build the dashboard.
+  /// Uses MAX(date) to find the most recent reading, not MAX(id).
   Future<Map<String, HealthMetric>> getLatestAll() async {
     final db = await database;
     final rows = await db.rawQuery('''
-      SELECT * FROM health_metrics
-      WHERE id IN (
-        SELECT MAX(id) FROM health_metrics GROUP BY metric
-      )
-      ORDER BY metric
+      SELECT h.* FROM health_metrics h
+      INNER JOIN (
+        SELECT metric, MAX(date) as max_date
+        FROM health_metrics
+        GROUP BY metric
+      ) latest ON h.metric = latest.metric AND h.date = latest.max_date
+      GROUP BY h.metric
+      ORDER BY h.metric
     ''');
     return {
       for (final r in rows) (r['metric'] as String): HealthMetric.fromMap(r),
@@ -134,18 +138,30 @@ class HealthDatabase {
     final sinceStr = since.toIso8601String().substring(0, 10);
 
     final rows = await db.rawQuery('''
-      SELECT metric,
-             ROUND(AVG(value), 1) as avg_val,
-             ROUND(MIN(value), 1) as min_val,
-             ROUND(MAX(value), 1) as max_val,
-             COUNT(*)             as data_points,
-             MAX(date)            as latest_date,
-             MAX(value)           as latest_val
-      FROM health_metrics
-      WHERE date >= ?
-      GROUP BY metric
-      ORDER BY metric
-    ''', [sinceStr]);
+      SELECT
+        m.metric,
+        ROUND(AVG(m.value), 1)  as avg_val,
+        ROUND(MIN(m.value), 1)  as min_val,
+        ROUND(MAX(m.value), 1)  as max_val,
+        COUNT(*)                as data_points,
+        l.date                  as latest_date,
+        ROUND(l.value, 1)       as latest_val
+      FROM health_metrics m
+      INNER JOIN (
+        SELECT h.metric, h.date, h.value
+        FROM health_metrics h
+        INNER JOIN (
+          SELECT metric, MAX(date) as max_date
+          FROM health_metrics
+          WHERE date >= ?
+          GROUP BY metric
+        ) ld ON h.metric = ld.metric AND h.date = ld.max_date
+        GROUP BY h.metric
+      ) l ON m.metric = l.metric
+      WHERE m.date >= ?
+      GROUP BY m.metric
+      ORDER BY m.metric
+    ''', [sinceStr, sinceStr]);
 
     if (rows.isEmpty) return 'No health data recorded yet.';
 
