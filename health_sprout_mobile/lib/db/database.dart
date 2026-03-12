@@ -131,54 +131,59 @@ class HealthDatabase {
   }
 
   /// Build a compact AI-readable summary of recent health data.
-  /// The AI uses this instead of raw values — no hallucination risk.
+  /// Uses two simple queries to avoid SQLite GROUP BY ambiguity bugs.
   Future<String> buildAiSummary({int days = 30}) async {
     final db    = await database;
     final since = DateTime.now().subtract(Duration(days: days));
     final sinceStr = since.toIso8601String().substring(0, 10);
 
-    final rows = await db.rawQuery('''
-      SELECT
-        m.metric,
-        ROUND(AVG(m.value), 1)  as avg_val,
-        ROUND(MIN(m.value), 1)  as min_val,
-        ROUND(MAX(m.value), 1)  as max_val,
-        COUNT(*)                as data_points,
-        l.date                  as latest_date,
-        ROUND(l.value, 1)       as latest_val
-      FROM health_metrics m
-      INNER JOIN (
-        SELECT h.metric, h.date, h.value
-        FROM health_metrics h
-        INNER JOIN (
-          SELECT metric, MAX(date) as max_date
-          FROM health_metrics
-          WHERE date >= ?
-          GROUP BY metric
-        ) ld ON h.metric = ld.metric AND h.date = ld.max_date
-        GROUP BY h.metric
-      ) l ON m.metric = l.metric
-      WHERE m.date >= ?
-      GROUP BY m.metric
-      ORDER BY m.metric
-    ''', [sinceStr, sinceStr]);
+    // Query 1: aggregates over the period
+    final aggRows = await db.rawQuery('''
+      SELECT metric,
+             ROUND(AVG(value), 2) as avg_val,
+             ROUND(MIN(value), 2) as min_val,
+             ROUND(MAX(value), 2) as max_val,
+             COUNT(*)             as data_points
+      FROM health_metrics
+      WHERE date >= ?
+      GROUP BY metric
+      ORDER BY metric
+    ''', [sinceStr]);
 
-    if (rows.isEmpty) return 'No health data recorded yet.';
+    if (aggRows.isEmpty) return 'No health data recorded yet.';
 
+    // Query 2: latest value per metric using ORDER BY date DESC LIMIT 1
+    // Run one simple query per metric — no complex subqueries, no ambiguity.
     final lines = <String>[
       '=== HEALTH DATA SUMMARY (last $days days, from SQLite DB) ===',
+      'Today\'s date: ${DateTime.now().toIso8601String().substring(0, 10)}',
     ];
 
-    for (final r in rows) {
+    for (final r in aggRows) {
       final metric = r['metric'] as String;
       final label  = MetricType.labels[metric] ?? metric;
       final unit   = MetricType.units[metric]  ?? '';
+
+      // Get the single latest reading for this metric
+      final latestRows = await db.query(
+        'health_metrics',
+        where:    'metric = ?',
+        whereArgs: [metric],
+        orderBy:  'date DESC',
+        limit:    1,
+      );
+
+      final latestDate = latestRows.isEmpty ? 'unknown'
+          : (latestRows.first['date'] as String);
+      final latestVal  = latestRows.isEmpty ? 'unknown'
+          : (latestRows.first['value'] as num).toStringAsFixed(1);
+
       lines.add(
-        '$label: avg=${r['avg_val']}$unit  '
+        '$label: latest=$latestVal$unit on $latestDate  '
+        'avg=${r['avg_val']}$unit  '
         'min=${r['min_val']}$unit  '
         'max=${r['max_val']}$unit  '
-        'latest=${r['latest_val']}$unit on ${r['latest_date']}  '
-        '(${r['data_points']} readings)',
+        '(${r['data_points']} readings in last $days days)',
       );
     }
     lines.add('=== END HEALTH DATA ===');
