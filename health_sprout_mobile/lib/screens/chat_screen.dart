@@ -6,7 +6,8 @@ enum ChatMode { bodyCoach, sproutAdvisor }
 
 class ChatScreen extends StatefulWidget {
   final ChatMode mode;
-  const ChatScreen({super.key, required this.mode});
+  final String? initialMessage;
+  const ChatScreen({super.key, required this.mode, this.initialMessage});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -47,8 +48,12 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    // Send opening message
-    await _sendOpeningMessage();
+    // Send opening message or initial analysis request
+    if (widget.initialMessage != null) {
+      await _sendMessage(widget.initialMessage!, showInUi: true);
+    } else {
+      await _sendOpeningMessage();
+    }
   }
 
   Future<void> _sendOpeningMessage() async {

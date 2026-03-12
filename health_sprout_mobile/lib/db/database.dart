@@ -140,13 +140,14 @@ class HealthDatabase {
   }
 
   /// Build a compact AI-readable summary of recent health data.
-  /// Uses getLatestAll() for latest values — same source as the dashboard tiles.
-  Future<String> buildAiSummary({int days = 30}) async {
+  /// Includes latest values, aggregates, and 7-day/30-day trends.
+  Future<String> buildAiSummary({int days = 90}) async {
     final db    = await database;
+    final today = DateTime.now().toLocal().toIso8601String().substring(0, 10);
     final since = DateTime.now().subtract(Duration(days: days));
     final sinceStr = since.toIso8601String().substring(0, 10);
 
-    // Query 1: aggregates over the period (only date-filtered, no latest logic)
+    // Query 1: aggregates over the period
     final aggRows = await db.rawQuery('''
       SELECT metric,
              ROUND(AVG(value), 2) as avg_val,
@@ -157,17 +158,23 @@ class HealthDatabase {
       WHERE date >= ? AND date <= ?
       GROUP BY metric
       ORDER BY metric
-    ''', [sinceStr, DateTime.now().toIso8601String().substring(0, 10)]);
+    ''', [sinceStr, today]);
 
     if (aggRows.isEmpty) return 'No health data recorded yet.';
 
-    // Query 2: use getLatestAll() — the EXACT same function the dashboard uses.
-    // This guarantees the AI sees the same "latest" values as the tiles.
+    // Query 2: latest values (same as dashboard tiles)
     final latestAll = await getLatestAll();
+
+    // Query 3: values from ~7 days ago and ~30 days ago for trend analysis
+    final d7ago  = DateTime.now().subtract(const Duration(days: 7))
+        .toIso8601String().substring(0, 10);
+    final d30ago = DateTime.now().subtract(const Duration(days: 30))
+        .toIso8601String().substring(0, 10);
 
     final lines = <String>[
       '=== HEALTH DATA SUMMARY (last $days days, from SQLite DB) ===',
-      'Today\'s date: ${DateTime.now().toIso8601String().substring(0, 10)}',
+      'Today\'s date: $today',
+      '',
     ];
 
     for (final r in aggRows) {
@@ -179,14 +186,67 @@ class HealthDatabase {
       final latestVal  = latest?.value.toStringAsFixed(1) ?? 'unknown';
       final latestDate = latest?.date ?? 'unknown';
 
+      // Get value from ~7 days ago
+      final rows7 = await db.query('health_metrics',
+        where: 'metric = ? AND date <= ? AND date >= ?',
+        whereArgs: [metric, d7ago, sinceStr],
+        orderBy: 'date DESC', limit: 1);
+      final val7 = rows7.isNotEmpty
+          ? (rows7.first['value'] as num).toDouble() : null;
+
+      // Get value from ~30 days ago
+      final rows30 = await db.query('health_metrics',
+        where: 'metric = ? AND date <= ? AND date >= ?',
+        whereArgs: [metric, d30ago, sinceStr],
+        orderBy: 'date DESC', limit: 1);
+      final val30 = rows30.isNotEmpty
+          ? (rows30.first['value'] as num).toDouble() : null;
+
+      // Build trend strings
+      String trend7  = '';
+      String trend30 = '';
+      if (latest != null && val7 != null) {
+        final diff = latest.value - val7;
+        final pct  = val7 != 0 ? (diff / val7 * 100) : 0.0;
+        trend7 = '7d_change=${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(1)}$unit'
+                 '(${pct >= 0 ? "+" : ""}${pct.toStringAsFixed(1)}%)';
+      }
+      if (latest != null && val30 != null) {
+        final diff = latest.value - val30;
+        final pct  = val30 != 0 ? (diff / val30 * 100) : 0.0;
+        trend30 = '30d_change=${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(1)}$unit'
+                  '(${pct >= 0 ? "+" : ""}${pct.toStringAsFixed(1)}%)';
+      }
+
       lines.add(
         '$label: latest=$latestVal$unit on $latestDate  '
         'avg=${r['avg_val']}$unit  '
-        'min=${r['min_val']}$unit  '
-        'max=${r['max_val']}$unit  '
-        '(${r['data_points']} readings in last $days days)',
+        'min=${r['min_val']}$unit  max=${r['max_val']}$unit  '
+        '${r['data_points']} readings  '
+        '$trend7  $trend30',
       );
     }
+
+    // Add recent daily activity log (last 7 days) for correlation analysis
+    lines.add('');
+    lines.add('=== RECENT DAILY LOG (last 7 days) ===');
+    for (int i = 0; i < 7; i++) {
+      final d = DateTime.now().subtract(Duration(days: i))
+          .toIso8601String().substring(0, 10);
+      final dayRows = await db.query('health_metrics',
+        where: 'date = ?', whereArgs: [d], orderBy: 'metric');
+
+      if (dayRows.isEmpty) continue;
+      final dayMetrics = dayRows.map((row) {
+        final m = row['metric'] as String;
+        final v = (row['value'] as num).toDouble();
+        final u = MetricType.units[m] ?? '';
+        final shortLabel = MetricType.labels[m] ?? m;
+        return '$shortLabel=${v.toStringAsFixed(1)}$u';
+      }).join(', ');
+      lines.add('$d: $dayMetrics');
+    }
+
     lines.add('=== END HEALTH DATA ===');
     return lines.join('\n');
   }

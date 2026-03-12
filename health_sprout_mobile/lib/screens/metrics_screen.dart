@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../db/database.dart';
 import '../models/health_metric.dart';
+import 'chat_screen.dart';
 
 class MetricsScreen extends StatefulWidget {
   const MetricsScreen({super.key});
@@ -119,6 +120,40 @@ class _MetricsScreenState extends State<MetricsScreen> {
 
         // ── Stats row ────────────────────────────────────────────────────
         if (_data.isNotEmpty) _StatsRow(data: _data),
+
+        // ── AI Insights button ──────────────────────────────────────────
+        if (_data.length >= 3)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.auto_awesome, size: 18),
+                label: Text('AI: Analyze my ${MetricType.labels[_selectedMetric] ?? _selectedMetric} trends'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  final label = MetricType.labels[_selectedMetric] ?? _selectedMetric;
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => ChatScreen(
+                      mode: ChatMode.bodyCoach,
+                      initialMessage:
+                        'Analyze my $label trends over the last ${_selectedDays} days. '
+                        'What patterns do you see? Are there any correlations with my '
+                        'sleep, heart rate, HRV, or activity data? '
+                        'Give me specific insights and actionable suggestions.',
+                    ),
+                  ));
+                },
+              ),
+            ),
+          ),
       ]),
     );
   }
