@@ -208,7 +208,7 @@ def main():
     client = genai.Client(api_key=api_key)
 
     chat = client.chats.create(
-        model="gemini-1.5-flash",               # Free tier: 15 RPM, 1,500 req/day
+        model="gemini-2.5-flash",               # Free tier: 500 RPD, 10 RPM
         config=genai_types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
         ),

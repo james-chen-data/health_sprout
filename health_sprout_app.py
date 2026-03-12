@@ -16,7 +16,7 @@ For Fitbit integration (optional):
   1. Go to https://dev.fitbit.com/apps/new and register a free "Personal" app
   2. Set OAuth 2.0 Application Type: "Personal"
   3. Set Redirect URI: http://localhost:8080/callback
-  4. Copy your Client ID — the script will ask for it
+  4. Copy your Client ID AND Client Secret — the script will ask for both
 """
 
 import os
@@ -106,7 +106,7 @@ class _OAuthCallbackHandler(BaseHTTPRequestHandler):
         pass  # suppress console noise
 
 
-def fitbit_authorize(client_id: str) -> dict | None:
+def fitbit_authorize(client_id: str, client_secret: str) -> dict | None:
     """
     Run the Fitbit OAuth 2.0 PKCE flow.
     Returns a token dict {access_token, refresh_token, user_id, ...} or None.
@@ -164,18 +164,26 @@ def fitbit_authorize(client_id: str) -> dict | None:
         return None
 
     # Exchange code for tokens
+    # Fitbit requires Basic auth: base64(client_id:client_secret)
+    basic_auth = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
     try:
-        resp = req.post(FITBIT_TOKEN_URL, data={
-            "client_id":     client_id,
-            "grant_type":    "authorization_code",
-            "redirect_uri":  FITBIT_REDIRECT,
-            "code":          code,
-            "code_verifier": code_verifier,
-        }, timeout=15)
+        resp = req.post(FITBIT_TOKEN_URL,
+            headers={
+                "Authorization":  f"Basic {basic_auth}",
+                "Content-Type":   "application/x-www-form-urlencoded",
+            },
+            data={
+                "client_id":     client_id,
+                "grant_type":    "authorization_code",
+                "redirect_uri":  FITBIT_REDIRECT,
+                "code":          code,
+                "code_verifier": code_verifier,
+            }, timeout=15)
 
         if resp.status_code == 200:
             token = resp.json()
-            token["client_id"] = client_id
+            token["client_id"]     = client_id
+            token["client_secret"] = client_secret
             return token
         else:
             print(f"\n❌ Token exchange failed ({resp.status_code}): {resp.text}\n")
@@ -187,15 +195,24 @@ def fitbit_authorize(client_id: str) -> dict | None:
 
 def fitbit_refresh(token: dict) -> dict | None:
     """Refresh an expired Fitbit access token."""
+    client_id     = token.get("client_id", "")
+    client_secret = token.get("client_secret", "")
+    basic_auth    = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
     try:
-        resp = req.post(FITBIT_TOKEN_URL, data={
-            "grant_type":    "refresh_token",
-            "refresh_token": token["refresh_token"],
-            "client_id":     token.get("client_id", ""),
-        }, timeout=15)
+        resp = req.post(FITBIT_TOKEN_URL,
+            headers={
+                "Authorization": f"Basic {basic_auth}",
+                "Content-Type":  "application/x-www-form-urlencoded",
+            },
+            data={
+                "grant_type":    "refresh_token",
+                "refresh_token": token["refresh_token"],
+                "client_id":     client_id,
+            }, timeout=15)
         if resp.status_code == 200:
             new_token = resp.json()
-            new_token["client_id"] = token.get("client_id", "")
+            new_token["client_id"]     = client_id
+            new_token["client_secret"] = client_secret
             return new_token
     except Exception:
         pass
@@ -221,25 +238,40 @@ def fitbit_get(endpoint: str, access_token: str) -> dict | None:
 
 def fetch_fitbit_summary(token: dict) -> dict:
     """
-    Fetch a health summary from Fitbit.
+    Fetch comprehensive health history from Fitbit.
     Handles token refresh automatically.
-    Returns a dict with keys: profile, steps_7d, sleep_30d, weight_30d, heart_today.
+    Pulls 6 months of: steps, resting HR, weight, body fat, sleep, HRV, SpO2.
     """
     access = token["access_token"]
     data   = {}
 
     endpoints = {
-        "profile":     "/1/user/-/profile.json",
-        "steps_7d":    "/1/user/-/activities/steps/date/today/7d.json",
-        "sleep_30d":   "/1/user/-/sleep/date/today/1M.json",
-        "weight_30d":  "/1/user/-/body/weight/date/today/1M.json",
-        "heart_today": "/1/user/-/activities/heart/date/today/1d.json",
+        # Profile
+        "profile":          "/1/user/-/profile.json",
+        # Activity — 6 months of daily steps
+        "steps_6m":         "/1/user/-/activities/steps/date/today/6m.json",
+        # Resting heart rate — 6 months of daily values
+        "heart_6m":         "/1/user/-/activities/heart/date/today/6m.json",
+        # Weight — 6 months
+        "weight_6m":        "/1/user/-/body/weight/date/today/6m.json",
+        # Body fat % — 6 months
+        "bodyfat_6m":       "/1/user/-/body/fat/date/today/6m.json",
+        # BMI — 6 months
+        "bmi_6m":           "/1/user/-/body/bmi/date/today/6m.json",
+        # Sleep — last 30 nights (API limit per call)
+        "sleep_30d":        "/1/user/-/sleep/date/today/1M.json",
+        # SpO2 (blood oxygen) — 30 days; requires compatible device
+        "spo2_30d":         "/1/user/-/spo2/date/today/1M.json",
+        # HRV — 30 days; requires Fitbit Premium or compatible device
+        "hrv_30d":          "/1/user/-/hrv/date/today/30d.json",
+        # Breathing rate during sleep — 30 days
+        "breathingrate_30d":"/1/user/-/br/date/today/30d.json",
     }
 
+    print("   Fetching data", end="", flush=True)
     for key, ep in endpoints.items():
         result = fitbit_get(ep, access)
         if isinstance(result, dict) and result.get("_expired"):
-            # Try to refresh once
             new_token = fitbit_refresh(token)
             if new_token:
                 token.update(new_token)
@@ -247,56 +279,188 @@ def fetch_fitbit_summary(token: dict) -> dict:
                 result = fitbit_get(ep, access)
         if result and not result.get("_expired"):
             data[key] = result
+        print(".", end="", flush=True)
+    print(" done\n")
 
     return data
 
 
 def summarise_fitbit(data: dict) -> str:
-    """Convert raw Fitbit JSON into a concise text block for the LLM."""
-    lines = ["=== FITBIT HEALTH DATA ==="]
+    """Convert rich Fitbit history into a structured text block for the LLM."""
+    lines = ["=== FITBIT HEALTH HISTORY ==="]
 
-    # Profile
+    # ── Profile ───────────────────────────────────────────────────────────────
     profile = data.get("profile", {}).get("user", {})
     if profile:
-        lines.append(f"Age: {profile.get('age', 'N/A')}  |  "
-                     f"Gender: {profile.get('gender', 'N/A')}  |  "
-                     f"Height: {profile.get('height', 'N/A')} cm  |  "
-                     f"Weight: {profile.get('weight', 'N/A')} kg")
-        lines.append(f"Member since: {profile.get('memberSince', 'N/A')}")
+        lines.append(
+            f"Profile — Age: {profile.get('age','N/A')} | "
+            f"Gender: {profile.get('gender','N/A')} | "
+            f"Height: {profile.get('height','N/A')} cm | "
+            f"Current weight: {profile.get('weight','N/A')} kg"
+        )
 
-    # Steps (last 7 days)
-    steps_raw = data.get("steps_7d", {}).get("activities-steps", [])
-    if steps_raw:
-        avg_steps = sum(int(d.get("value", 0)) for d in steps_raw) // max(len(steps_raw), 1)
-        lines.append(f"\n7-Day Avg Daily Steps: {avg_steps:,}")
-        lines.append("Daily breakdown: " + ", ".join(
-            f"{d['dateTime']}: {int(d['value']):,}" for d in steps_raw
-        ))
+    # ── Weight trend ──────────────────────────────────────────────────────────
+    weight_logs = data.get("weight_6m", {}).get("body-weight", [])
+    if weight_logs:
+        vals = [(d["dateTime"], float(d["value"])) for d in weight_logs if d.get("value")]
+        if vals:
+            oldest_date, oldest_val = vals[0]
+            latest_date, latest_val = vals[-1]
+            change = latest_val - oldest_val
+            lines.append(
+                f"\nWeight — Latest: {latest_val} kg ({latest_date}) | "
+                f"6-month change: {change:+.1f} kg (from {oldest_val} kg on {oldest_date})"
+            )
+            # Monthly averages
+            from collections import defaultdict
+            monthly: dict = defaultdict(list)
+            for dt, v in vals:
+                monthly[dt[:7]].append(v)
+            monthly_avgs = {m: sum(vs)/len(vs) for m, vs in sorted(monthly.items())}
+            lines.append("Monthly avg weight (kg): " + " | ".join(
+                f"{m}: {v:.1f}" for m, v in monthly_avgs.items()
+            ))
 
-    # Resting heart rate
-    heart = data.get("heart_today", {}).get("activities-heart", [])
-    if heart:
-        rhr = heart[-1].get("value", {}).get("restingHeartRate", "N/A")
-        lines.append(f"\nResting Heart Rate (today): {rhr} bpm")
+    # ── Body fat % ────────────────────────────────────────────────────────────
+    fat_logs = data.get("bodyfat_6m", {}).get("body-fat", [])
+    if fat_logs:
+        fat_vals = [(d["dateTime"], float(d["value"])) for d in fat_logs if d.get("value")]
+        if fat_vals:
+            latest_fat_date, latest_fat = fat_vals[-1]
+            oldest_fat = fat_vals[0][1]
+            lines.append(
+                f"Body Fat % — Latest: {latest_fat:.1f}% ({latest_fat_date}) | "
+                f"6-month change: {latest_fat - oldest_fat:+.1f}%"
+            )
 
-    # Sleep (last 30 days — summarise averages)
+    # ── BMI ───────────────────────────────────────────────────────────────────
+    bmi_logs = data.get("bmi_6m", {}).get("body-bmi", [])
+    if bmi_logs:
+        latest_bmi = float(bmi_logs[-1]["value"])
+        lines.append(f"BMI (latest): {latest_bmi:.1f}")
+
+    # ── Resting heart rate trend ───────────────────────────────────────────────
+    heart_logs = data.get("heart_6m", {}).get("activities-heart", [])
+    if heart_logs:
+        rhr_vals = [
+            (d["dateTime"], d["value"].get("restingHeartRate"))
+            for d in heart_logs
+            if isinstance(d.get("value"), dict) and d["value"].get("restingHeartRate")
+        ]
+        if rhr_vals:
+            latest_rhr_date, latest_rhr = rhr_vals[-1]
+            oldest_rhr = rhr_vals[0][1]
+            avg_rhr = sum(v for _, v in rhr_vals) // len(rhr_vals)
+            lines.append(
+                f"\nResting HR — Latest: {latest_rhr} bpm ({latest_rhr_date}) | "
+                f"6-month avg: {avg_rhr} bpm | "
+                f"6-month change: {latest_rhr - oldest_rhr:+d} bpm"
+            )
+            # Monthly averages
+            from collections import defaultdict
+            monthly_rhr: dict = defaultdict(list)
+            for dt, v in rhr_vals:
+                monthly_rhr[dt[:7]].append(v)
+            lines.append("Monthly avg resting HR (bpm): " + " | ".join(
+                f"{m}: {sum(vs)//len(vs)}" for m, vs in sorted(monthly_rhr.items())
+            ))
+
+    # ── HRV ───────────────────────────────────────────────────────────────────
+    hrv_data = data.get("hrv_30d", {}).get("hrv", [])
+    if hrv_data:
+        hrv_vals = []
+        for entry in hrv_data:
+            for m in entry.get("minutes", []):
+                rmssd = m.get("value", {}).get("rmssd")
+                if rmssd:
+                    hrv_vals.append((entry.get("dateTime", ""), float(rmssd)))
+        if hrv_vals:
+            avg_hrv = sum(v for _, v in hrv_vals) / len(hrv_vals)
+            latest_hrv = hrv_vals[-1][1]
+            lines.append(f"HRV (RMSSD) — Latest: {latest_hrv:.1f} ms | 30-day avg: {avg_hrv:.1f} ms")
+
+    # ── SpO2 ──────────────────────────────────────────────────────────────────
+    spo2_data = data.get("spo2_30d", {})
+    spo2_list = spo2_data if isinstance(spo2_data, list) else spo2_data.get("dateRangeList", [])
+    if spo2_list:
+        spo2_vals = [
+            float(d.get("value", {}).get("avg", 0) or d.get("avg", 0))
+            for d in spo2_list
+            if (d.get("value", {}).get("avg") or d.get("avg"))
+        ]
+        if spo2_vals:
+            avg_spo2 = sum(spo2_vals) / len(spo2_vals)
+            lines.append(f"SpO2 (blood oxygen) — 30-day avg: {avg_spo2:.1f}%")
+
+    # ── Sleep ─────────────────────────────────────────────────────────────────
     sleep_logs = data.get("sleep_30d", {}).get("sleep", [])
     if sleep_logs:
-        recent = sleep_logs[-7:]  # last 7 nights
-        avg_duration = sum(s.get("duration", 0) for s in recent) // max(len(recent), 1)
-        avg_efficiency = sum(s.get("efficiency", 0) for s in recent) // max(len(recent), 1)
-        avg_hrs = avg_duration / 3_600_000
-        lines.append(f"\n7-Night Avg Sleep: {avg_hrs:.1f} hrs/night  |  Efficiency: {avg_efficiency}%")
+        main_sleep = [s for s in sleep_logs if s.get("isMainSleep")]
+        if main_sleep:
+            avg_duration   = sum(s.get("duration", 0) for s in main_sleep) / len(main_sleep)
+            avg_efficiency = sum(s.get("efficiency", 0) for s in main_sleep) / len(main_sleep)
+            avg_hrs        = avg_duration / 3_600_000
 
-    # Weight trend (last 30 days)
-    weight_logs = data.get("weight_30d", {}).get("body-weight", [])
-    if weight_logs:
-        latest = float(weight_logs[-1]["value"])
-        oldest = float(weight_logs[0]["value"])
-        trend  = latest - oldest
-        lines.append(f"\nWeight (latest): {latest} kg  |  30-day change: {trend:+.1f} kg")
+            # Sleep stages breakdown (if available)
+            deep_mins = rem_mins = light_mins = 0
+            stage_count = 0
+            for s in main_sleep:
+                stages = s.get("levels", {}).get("summary", {})
+                if stages:
+                    deep_mins  += stages.get("deep",  {}).get("minutes", 0)
+                    rem_mins   += stages.get("rem",   {}).get("minutes", 0)
+                    light_mins += stages.get("light", {}).get("minutes", 0)
+                    stage_count += 1
 
-    lines.append("=========================")
+            lines.append(
+                f"\nSleep (last {len(main_sleep)} nights) — "
+                f"Avg: {avg_hrs:.1f} hrs | Efficiency: {avg_efficiency:.0f}%"
+            )
+            if stage_count:
+                n = stage_count
+                lines.append(
+                    f"Avg sleep stages/night — Deep: {deep_mins//n} min | "
+                    f"REM: {rem_mins//n} min | Light: {light_mins//n} min"
+                )
+
+            # Sleep HR during rest (from heartRateData if available)
+            sleep_hr_vals = []
+            for s in main_sleep[-7:]:
+                hr_data = s.get("heartRateData", {})
+                avg_hr = hr_data.get("averageHeartRate") or \
+                         s.get("averageHeartRate")
+                if avg_hr:
+                    sleep_hr_vals.append(float(avg_hr))
+            if sleep_hr_vals:
+                avg_sleep_hr = sum(sleep_hr_vals) / len(sleep_hr_vals)
+                lines.append(f"Avg sleeping HR (last 7 nights): {avg_sleep_hr:.0f} bpm")
+
+    # ── Breathing rate ────────────────────────────────────────────────────────
+    br_data = data.get("breathingrate_30d", {}).get("br", [])
+    if br_data:
+        br_vals = [
+            float(d.get("value", {}).get("breathingRate", 0))
+            for d in br_data
+            if d.get("value", {}).get("breathingRate")
+        ]
+        if br_vals:
+            avg_br = sum(br_vals) / len(br_vals)
+            lines.append(f"Avg breathing rate during sleep (30d): {avg_br:.1f} breaths/min")
+
+    # ── Steps ─────────────────────────────────────────────────────────────────
+    steps_raw = data.get("steps_6m", {}).get("activities-steps", [])
+    if steps_raw:
+        active_days = [d for d in steps_raw if int(d.get("value", 0)) > 500]
+        if active_days:
+            avg_steps = sum(int(d["value"]) for d in active_days) // len(active_days)
+            recent_7  = steps_raw[-7:]
+            avg_recent = sum(int(d["value"]) for d in recent_7) // len(recent_7)
+            lines.append(
+                f"\nSteps — 7-day avg: {avg_recent:,} | "
+                f"6-month avg (active days): {avg_steps:,}"
+            )
+
+    lines.append("\n=== END FITBIT DATA ===")
     return "\n".join(lines)
 
 
@@ -484,13 +648,12 @@ def get_api_key() -> str:
     return key
 
 
-def run_chat(system_prompt: str, opening_instruction: str, label: str):
+def run_chat(system_prompt: str, opening_instruction: str, label: str, api_key: str):
     """Generic multi-turn chat loop with a given system prompt."""
-    api_key = get_api_key()
     client = genai.Client(api_key=api_key)
 
     chat = client.chats.create(
-        model="gemini-1.5-flash",               # Free tier: 15 RPM, 1,500 req/day
+        model="gemini-2.5-flash",               # Free tier: 500 RPD, 10 RPM
         config=genai_types.GenerateContentConfig(
             system_instruction=system_prompt,
         ),
@@ -529,12 +692,10 @@ def run_chat(system_prompt: str, opening_instruction: str, label: str):
 #  MODULE 2 — BODY RECOMPOSITION WITH FITBIT
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_body_recomposition():
+def run_body_recomposition(api_key: str):
     print("\n" + "═" * 62)
     print("  💪  Body Recomposition Coach")
     print("═" * 62)
-
-    api_key = get_api_key()
 
     # ── Fitbit setup ──────────────────────────────────────────────────────────
     fitbit_summary = ""
@@ -568,11 +729,12 @@ def run_body_recomposition():
                 print("  2. Fill in any app name (e.g. 'My Health App')")
                 print("  3. Set 'OAuth 2.0 Application Type' = Personal")
                 print("  4. Set 'Redirect URI' = http://localhost:8080/callback")
-                print("  5. Click Save — then copy your Client ID\n")
-                client_id = input("Paste your Fitbit Client ID (or press Enter to skip): ").strip()
+                print("  5. Click Save — then copy your Client ID and Client Secret\n")
+                client_id     = input("Paste your Fitbit Client ID (or press Enter to skip): ").strip()
+                client_secret = input("Paste your Fitbit Client Secret: ").strip() if client_id else ""
 
-                if client_id:
-                    token = fitbit_authorize(client_id)
+                if client_id and client_secret:
+                    token = fitbit_authorize(client_id, client_secret)
                     if token:
                         print("\n✅ Fitbit connected! Fetching your health data...")
                         fitbit_data = fetch_fitbit_summary(token)
@@ -594,7 +756,7 @@ def run_body_recomposition():
     # ── Start conversation ────────────────────────────────────────────────────
     client = genai.Client(api_key=api_key)
     chat = client.chats.create(
-        model="gemini-1.5-flash",               # Free tier: 15 RPM, 1,500 req/day
+        model="gemini-2.5-flash",               # Free tier: 500 RPD, 10 RPM
         config=genai_types.GenerateContentConfig(
             system_instruction=full_system,
         ),
@@ -640,6 +802,9 @@ def run_body_recomposition():
 # ══════════════════════════════════════════════════════════════════════════════
 
 def main():
+    # Ask for API key once at startup — reused for all modules
+    api_key = get_api_key()
+
     while True:
         print("\n" + "═" * 62)
         print("  🌿  HEALTH SPROUT — Personal Health Advisor")
@@ -669,10 +834,11 @@ def main():
                     "their own sprouts or microgreens, giving a few examples."
                 ),
                 label="🌱 Advisor",
+                api_key=api_key,
             )
 
         elif choice == "2":
-            run_body_recomposition()
+            run_body_recomposition(api_key)
 
         elif choice in ("3", "q", "quit", "exit"):
             print("\n  Goodbye! Stay healthy. 🌿\n")

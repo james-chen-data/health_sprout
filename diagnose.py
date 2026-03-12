@@ -34,41 +34,72 @@ except Exception:
 
 # ── Check 3: API Key ───────────────────────────────
 print("3. Enter your Gemini API key to test it:")
-print("   (Get a NEW key at https://aistudio.google.com/apikey)\n")
+print("   (Get a key at https://aistudio.google.com/apikey)\n")
 api_key = input("   API Key: ").strip()
 
 if not api_key:
     print("   ❌ No key entered. Exiting.\n")
     sys.exit(1)
 
-# ── Check 4: Test API call ─────────────────────────
-print("\n4. Testing API connection with gemini-1.5-flash...")
+client = genai.Client(api_key=api_key)
+
+# ── Check 4: List available models ────────────────
+print("\n4. Listing models available for your API key...")
+available = []
 try:
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents="Say exactly: CONNECTED"
-    )
-    print(f"   ✅ API works! Response: {response.text.strip()}\n")
-    print("="*50)
-    print("  All checks passed! You're good to go.")
-    print("  Run: python health_sprout_app.py")
-    print("="*50 + "\n")
+    for m in client.models.list():
+        name = getattr(m, "name", str(m))
+        # Only show generateContent-capable Gemini models
+        supported = getattr(m, "supported_actions", None) or \
+                    getattr(m, "supported_generation_methods", [])
+        if "generateContent" in str(supported) and "gemini" in name.lower():
+            available.append(name)
+            print(f"   ✅ {name}")
+    if not available:
+        print("   ⚠️  No generateContent-capable models found — key may be restricted.")
 except Exception as e:
-    err = str(e)
-    print(f"   ❌ API call failed:\n   {err}\n")
-    if "API_KEY_INVALID" in err or "invalid" in err.lower():
-        print("   → Your API key is invalid or from the wrong place.")
-        print("   → Get a key from: https://aistudio.google.com/apikey")
-        print("   → NOT from Google Cloud Console — that's a different key.\n")
-    elif "quota" in err.lower() or "429" in err:
-        print("   → Quota exceeded on this key.")
-        print("   → Create a BRAND NEW key at: https://aistudio.google.com/apikey")
-        print("   → Each new key starts with a fresh quota.\n")
-    elif "PERMISSION_DENIED" in err:
-        print("   → The Gemini API is not enabled for this key's project.")
-        print("   → Use a key from AI Studio, not Google Cloud Console.\n")
-    else:
-        print("   → Unexpected error. Copy the full message above and share it.\n")
+    print(f"   ⚠️  Could not list models: {e}")
+
+# ── Check 5: Try candidate models ─────────────────
+CANDIDATES = [
+    "gemini-2.0-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash",
+]
+
+print("\n5. Testing candidate models (first success wins)...")
+working_model = None
+for model in CANDIDATES:
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents="Say exactly: CONNECTED"
+        )
+        txt = response.text.strip() if response.text else ""
+        print(f"   ✅ {model} → {txt}")
+        working_model = model
+        break
+    except Exception as e:
+        short = str(e).split("\n")[0][:80]
+        print(f"   ❌ {model} → {short}")
+
+print("\n" + "="*50)
+if working_model:
+    print(f"  ✅ Working model: {working_model}")
+    print(f"\n  ACTION: Update health_sprout_app.py and sprout_advisor.py")
+    print(f"  Change both lines that say:")
+    print(f'      model="gemini-1.5-flash"')
+    print(f"  to:")
+    print(f'      model="{working_model}"')
+    print(f"\n  Then run: python health_sprout_app.py")
+else:
+    print("  ❌ No working model found.")
+    print("\n  POSSIBLE FIXES:")
+    print("  a) Get a fresh API key at: https://aistudio.google.com/apikey")
+    print("     (use your Google account, it's free)")
+    print("  b) Make sure you're NOT using a Google Cloud Console key")
+    print("     — only AI Studio keys (aistudio.google.com) work for free tier")
+print("="*50 + "\n")
 
 input("Press Enter to close...")
