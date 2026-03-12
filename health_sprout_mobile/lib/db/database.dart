@@ -111,33 +111,42 @@ class HealthDatabase {
     return rows.isEmpty ? null : HealthMetric.fromMap(rows.first);
   }
 
-  /// Get latest value for every metric type — used to build the dashboard.
-  /// Uses MAX(date) to find the most recent reading, not MAX(id).
+  /// Get latest value for every metric type — used to build the dashboard + AI.
+  /// Runs one clean query per metric: ORDER BY date DESC LIMIT 1.
+  /// Caps at today's date to exclude any accidentally future-dated rows.
   Future<Map<String, HealthMetric>> getLatestAll() async {
     final db = await database;
-    final rows = await db.rawQuery('''
-      SELECT h.* FROM health_metrics h
-      INNER JOIN (
-        SELECT metric, MAX(date) as max_date
-        FROM health_metrics
-        GROUP BY metric
-      ) latest ON h.metric = latest.metric AND h.date = latest.max_date
-      GROUP BY h.metric
-      ORDER BY h.metric
-    ''');
-    return {
-      for (final r in rows) (r['metric'] as String): HealthMetric.fromMap(r),
-    };
+    final today = DateTime.now().toLocal().toIso8601String().substring(0, 10);
+
+    // Get distinct metric types
+    final metricRows = await db.rawQuery(
+        'SELECT DISTINCT metric FROM health_metrics ORDER BY metric');
+
+    final result = <String, HealthMetric>{};
+    for (final mr in metricRows) {
+      final metric = mr['metric'] as String;
+      final rows = await db.query(
+        'health_metrics',
+        where:     'metric = ? AND date <= ?',
+        whereArgs: [metric, today],
+        orderBy:   'date DESC',
+        limit:     1,
+      );
+      if (rows.isNotEmpty) {
+        result[metric] = HealthMetric.fromMap(rows.first);
+      }
+    }
+    return result;
   }
 
   /// Build a compact AI-readable summary of recent health data.
-  /// Uses two simple queries to avoid SQLite GROUP BY ambiguity bugs.
+  /// Uses getLatestAll() for latest values — same source as the dashboard tiles.
   Future<String> buildAiSummary({int days = 30}) async {
     final db    = await database;
     final since = DateTime.now().subtract(Duration(days: days));
     final sinceStr = since.toIso8601String().substring(0, 10);
 
-    // Query 1: aggregates over the period
+    // Query 1: aggregates over the period (only date-filtered, no latest logic)
     final aggRows = await db.rawQuery('''
       SELECT metric,
              ROUND(AVG(value), 2) as avg_val,
@@ -145,15 +154,17 @@ class HealthDatabase {
              ROUND(MAX(value), 2) as max_val,
              COUNT(*)             as data_points
       FROM health_metrics
-      WHERE date >= ?
+      WHERE date >= ? AND date <= ?
       GROUP BY metric
       ORDER BY metric
-    ''', [sinceStr]);
+    ''', [sinceStr, DateTime.now().toIso8601String().substring(0, 10)]);
 
     if (aggRows.isEmpty) return 'No health data recorded yet.';
 
-    // Query 2: latest value per metric using ORDER BY date DESC LIMIT 1
-    // Run one simple query per metric — no complex subqueries, no ambiguity.
+    // Query 2: use getLatestAll() — the EXACT same function the dashboard uses.
+    // This guarantees the AI sees the same "latest" values as the tiles.
+    final latestAll = await getLatestAll();
+
     final lines = <String>[
       '=== HEALTH DATA SUMMARY (last $days days, from SQLite DB) ===',
       'Today\'s date: ${DateTime.now().toIso8601String().substring(0, 10)}',
@@ -164,19 +175,9 @@ class HealthDatabase {
       final label  = MetricType.labels[metric] ?? metric;
       final unit   = MetricType.units[metric]  ?? '';
 
-      // Get the single latest reading for this metric
-      final latestRows = await db.query(
-        'health_metrics',
-        where:    'metric = ?',
-        whereArgs: [metric],
-        orderBy:  'date DESC',
-        limit:    1,
-      );
-
-      final latestDate = latestRows.isEmpty ? 'unknown'
-          : (latestRows.first['date'] as String);
-      final latestVal  = latestRows.isEmpty ? 'unknown'
-          : (latestRows.first['value'] as num).toStringAsFixed(1);
+      final latest     = latestAll[metric];
+      final latestVal  = latest?.value.toStringAsFixed(1) ?? 'unknown';
+      final latestDate = latest?.date ?? 'unknown';
 
       lines.add(
         '$label: latest=$latestVal$unit on $latestDate  '
