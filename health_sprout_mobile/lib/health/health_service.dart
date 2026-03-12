@@ -68,7 +68,10 @@ class HealthService {
     int   saved = 0;
     int   errors = 0;
 
-    final metrics = <HealthMetric>[];
+    // Use a map to deduplicate: (date, metricType) → latest-timestamp reading
+    // This prevents older readings (e.g. Fitbit daily estimates) from
+    // overwriting the most recent direct measurement on the same day.
+    final Map<String, ({HealthMetric metric, DateTime timestamp})> best = {};
 
     for (final type in _types) {
       try {
@@ -80,12 +83,20 @@ class HealthService {
 
         for (final p in points) {
           final m = _convertToMetric(p);
-          if (m != null) metrics.add(m);
+          if (m == null) continue;
+          final key = '${m.date}|${m.metric}';
+          // Keep the reading with the latest dateFrom timestamp
+          final existing = best[key];
+          if (existing == null || p.dateFrom.isAfter(existing.timestamp)) {
+            best[key] = (metric: m, timestamp: p.dateFrom);
+          }
         }
       } catch (_) {
         errors++;
       }
     }
+
+    final metrics = best.values.map((e) => e.metric).toList();
 
     if (metrics.isNotEmpty) {
       await _db.upsertMetrics(metrics);
@@ -98,7 +109,9 @@ class HealthService {
   // ── Convert HealthDataPoint → HealthMetric ─────────────────────────────
 
   HealthMetric? _convertToMetric(HealthDataPoint p) {
-    final date = p.dateFrom.toIso8601String().substring(0, 10);
+    // Use LOCAL time for the date — avoids UTC offset pushing evening readings
+    // into the next calendar day (common in US timezones).
+    final date = p.dateFrom.toLocal().toIso8601String().substring(0, 10);
     final src  = 'health_connect';
 
     double? val;
