@@ -81,9 +81,6 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() { _loading = true; });
     }
 
-    // Always refresh DB data before sending so AI sees latest synced metrics
-    await _refreshSystemPrompt();
-
     try {
       final reply = await _gemini.sendMessage(
         apiKey:       _apiKey!,
@@ -181,7 +178,7 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Start new conversation',
+            tooltip: 'Refresh health data & start new conversation',
             onPressed: () async {
               await _refreshSystemPrompt();
               setState(() { _history.clear(); });
