@@ -62,6 +62,12 @@ class _ChatScreenState extends State<ChatScreen> {
     await _sendMessage(opening, showInUi: false);
   }
 
+  Future<void> _refreshSystemPrompt() async {
+    if (widget.mode == ChatMode.bodyCoach) {
+      _systemPrompt = await _gemini.buildBodyCoachPrompt();
+    }
+  }
+
   Future<void> _sendMessage(String text, {bool showInUi = true}) async {
     if (_apiKey == null || text.trim().isEmpty) return;
 
@@ -74,6 +80,9 @@ class _ChatScreenState extends State<ChatScreen> {
     } else {
       setState(() { _loading = true; });
     }
+
+    // Always refresh DB data before sending so AI sees latest synced metrics
+    await _refreshSystemPrompt();
 
     try {
       final reply = await _gemini.sendMessage(
@@ -173,10 +182,11 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Start new conversation',
-            onPressed: () => setState(() {
-              _history.clear();
-              _sendOpeningMessage();
-            }),
+            onPressed: () async {
+              await _refreshSystemPrompt();
+              setState(() { _history.clear(); });
+              await _sendOpeningMessage();
+            },
           ),
         ],
       ),
