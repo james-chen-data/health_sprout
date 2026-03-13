@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../db/database.dart';
 import '../models/health_metric.dart';
+import '../models/unit_prefs.dart';
 import 'chat_screen.dart';
 
 class MetricsScreen extends StatefulWidget {
@@ -19,11 +20,13 @@ class _MetricsScreenState extends State<MetricsScreen> {
   int    _selectedDays   = 90;
   List<HealthMetric> _data = [];
   bool   _loading          = true;
+  UnitPrefs _units         = UnitPrefs();
 
   static const _metricOptions = [
     MetricType.weightKg,
     MetricType.bodyFatPct,
     MetricType.restingHrBpm,
+    MetricType.sleepingHrBpm,
     MetricType.hrvRmssdMs,
     MetricType.spo2Pct,
     MetricType.steps,
@@ -32,6 +35,9 @@ class _MetricsScreenState extends State<MetricsScreen> {
     MetricType.sleepRemMin,
     MetricType.breathingRate,
     MetricType.activeCalories,
+    MetricType.workoutDurationMin,
+    MetricType.workoutCalories,
+    MetricType.workoutDistanceM,
   ];
 
   @override
@@ -42,9 +48,10 @@ class _MetricsScreenState extends State<MetricsScreen> {
 
   Future<void> _loadData() async {
     setState(() { _loading = true; });
-    final data = await _db.getMetricHistory(
+    final data  = await _db.getMetricHistory(
         _selectedMetric, days: _selectedDays);
-    setState(() { _data = data; _loading = false; });
+    final units = await UnitPrefs.load();
+    setState(() { _data = data; _loading = false; _units = units; });
   }
 
   @override
@@ -102,7 +109,7 @@ class _MetricsScreenState extends State<MetricsScreen> {
         ),
 
         // ── Trend card ────────────────────────────────────────────────────
-        if (_data.length >= 2) _TrendCard(data: _data, metric: _selectedMetric),
+        if (_data.length >= 2) _TrendCard(data: _data, metric: _selectedMetric, units: _units),
 
         // ── Chart ─────────────────────────────────────────────────────────
         Expanded(
@@ -114,12 +121,13 @@ class _MetricsScreenState extends State<MetricsScreen> {
                       padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
                       child: _MetricChart(
                           data:   _data,
-                          metric: _selectedMetric),
+                          metric: _selectedMetric,
+                          units:  _units),
                     ),
         ),
 
         // ── Stats row ────────────────────────────────────────────────────
-        if (_data.isNotEmpty) _StatsRow(data: _data),
+        if (_data.isNotEmpty) _StatsRow(data: _data, metric: _selectedMetric, units: _units),
 
         // ── AI Insights button ──────────────────────────────────────────
         if (_data.length >= 3)
@@ -176,17 +184,20 @@ class _MetricsScreenState extends State<MetricsScreen> {
 class _TrendCard extends StatelessWidget {
   final List<HealthMetric> data;
   final String metric;
-  const _TrendCard({required this.data, required this.metric});
+  final UnitPrefs units;
+  const _TrendCard({required this.data, required this.metric, required this.units});
 
   @override
   Widget build(BuildContext context) {
-    final latest = data.last.value;
-    final unit   = data.last.unit;
-    final label  = MetricType.labels[metric] ?? metric;
+    final latestRaw = data.last.value;
+    final latest    = units.displayValue(latestRaw, metric);
+    final unit      = units.displayUnit(metric, data.last.unit);
+    final label     = MetricType.labels[metric] ?? metric;
 
     // Compare latest to 7-day-ago value (or earliest if less data)
     final weekAgoIdx = data.length > 7 ? data.length - 8 : 0;
-    final previous   = data[weekAgoIdx].value;
+    final previousRaw = data[weekAgoIdx].value;
+    final previous    = units.displayValue(previousRaw, metric);
     final change     = latest - previous;
     final changePct  = previous != 0 ? (change / previous * 100) : 0.0;
 
@@ -258,6 +269,9 @@ class _TrendCard extends StatelessWidget {
       case MetricType.sleepRemMin:
       case MetricType.spo2Pct:
       case MetricType.activeCalories:
+      case MetricType.workoutDurationMin:
+      case MetricType.workoutCalories:
+      case MetricType.workoutDistanceM:
         return true;
       default:
         return false; // weight, body fat, resting HR, breathing rate — lower is better
@@ -270,14 +284,15 @@ class _TrendCard extends StatelessWidget {
 class _MetricChart extends StatefulWidget {
   final List<HealthMetric> data;
   final String             metric;
-  const _MetricChart({required this.data, required this.metric});
+  final UnitPrefs          units;
+  const _MetricChart({required this.data, required this.metric, required this.units});
 
   @override
   State<_MetricChart> createState() => _MetricChartState();
 }
 
 class _MetricChartState extends State<_MetricChart> {
-  int? _touchedIndex;
+  double _convert(double v) => widget.units.displayValue(v, widget.metric);
 
   /// Calculate 7-day simple moving average
   List<FlSpot> _movingAverage() {
@@ -288,7 +303,7 @@ class _MetricChartState extends State<_MetricChart> {
     for (int i = 6; i < data.length; i++) {
       double sum = 0;
       for (int j = i - 6; j <= i; j++) {
-        sum += data[j].value;
+        sum += _convert(data[j].value);
       }
       spots.add(FlSpot(i.toDouble(), sum / 7));
     }
@@ -299,11 +314,11 @@ class _MetricChartState extends State<_MetricChart> {
   Widget build(BuildContext context) {
     final data  = widget.data;
     final spots = data.asMap().entries.map((e) =>
-        FlSpot(e.key.toDouble(), e.value.value)).toList();
+        FlSpot(e.key.toDouble(), _convert(e.value.value))).toList();
     final maSpots = _movingAverage();
 
-    final minY = data.map((d) => d.value).reduce((a, b) => a < b ? a : b);
-    final maxY = data.map((d) => d.value).reduce((a, b) => a > b ? a : b);
+    final minY = data.map((d) => _convert(d.value)).reduce((a, b) => a < b ? a : b);
+    final maxY = data.map((d) => _convert(d.value)).reduce((a, b) => a > b ? a : b);
     final pad  = (maxY - minY) * 0.12 + 0.5;
 
     return LineChart(LineChartData(
@@ -350,13 +365,6 @@ class _MetricChartState extends State<_MetricChart> {
       ),
       lineTouchData: LineTouchData(
         enabled: true,
-        touchCallback: (event, response) {
-          if (response?.lineBarIndex == 0) {
-            setState(() {
-              _touchedIndex = response?.lineBarIndex;
-            });
-          }
-        },
         touchTooltipData: LineTouchTooltipData(
           getTooltipItems: (touchedSpots) {
             return touchedSpots.map((spot) {
@@ -365,9 +373,10 @@ class _MetricChartState extends State<_MetricChart> {
               if (spot.barIndex != 0) return null;
               if (i < 0 || i >= data.length) return null;
               final d = data[i];
-              final unit = MetricType.units[widget.metric] ?? d.unit;
+              final dispVal  = _convert(d.value);
+              final dispUnit = widget.units.displayUnit(widget.metric, d.unit);
               return LineTooltipItem(
-                '${d.date}\n${d.value.toStringAsFixed(1)} $unit',
+                '${d.date}\n${dispVal.toStringAsFixed(1)} $dispUnit',
                 const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -430,15 +439,17 @@ class _MetricChartState extends State<_MetricChart> {
 
 class _StatsRow extends StatelessWidget {
   final List<HealthMetric> data;
-  const _StatsRow({required this.data});
+  final String metric;
+  final UnitPrefs units;
+  const _StatsRow({required this.data, required this.metric, required this.units});
 
   @override
   Widget build(BuildContext context) {
-    final vals   = data.map((d) => d.value).toList();
+    final vals   = data.map((d) => units.displayValue(d.value, metric)).toList();
     final avg    = vals.reduce((a, b) => a + b) / vals.length;
     final minVal = vals.reduce((a, b) => a < b ? a : b);
     final maxVal = vals.reduce((a, b) => a > b ? a : b);
-    final unit   = data.first.unit;
+    final unit   = units.displayUnit(metric, data.first.unit);
 
     String fmt(double v) => v.abs() >= 1000
         ? NumberFormat.compact().format(v)

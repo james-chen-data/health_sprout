@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../ai/gemini_service.dart';
 import '../db/database.dart';
+import '../models/unit_prefs.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,9 +15,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final HealthDatabase _db     = HealthDatabase();
   final TextEditingController _keyCtrl = TextEditingController();
 
-  bool   _testing  = false;
-  String _keyStatus = '';
-  int    _dbRows   = 0;
+  bool      _testing   = false;
+  String    _keyStatus = '';
+  int       _dbRows    = 0;
+  UnitPrefs _units     = UnitPrefs();
 
   @override
   void initState() {
@@ -25,12 +27,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
-    final key  = await _gemini.getSavedApiKey();
-    final rows = await _db.countRows();
+    final key   = await _gemini.getSavedApiKey();
+    final rows  = await _db.countRows();
+    final units = await UnitPrefs.load();
     setState(() {
       _keyCtrl.text = key ?? '';
       _dbRows       = rows;
       _keyStatus    = key != null && key.isNotEmpty ? '✓ Key saved' : '';
+      _units        = units;
     });
   }
 
@@ -59,6 +63,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Settings'),
       ),
       body: ListView(padding: const EdgeInsets.all(16), children: [
+
+        // ── Unit Preferences ─────────────────────────────────────────────
+        const Text('Display Units',
+            style: TextStyle(fontWeight: FontWeight.bold,
+                fontSize: 16, color: Color(0xFF1B5E20))),
+        const SizedBox(height: 12),
+
+        // Weight unit toggle
+        Row(children: [
+          const Expanded(child: Text('Weight', style: TextStyle(fontSize: 15))),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'lbs', label: Text('lbs')),
+              ButtonSegment(value: 'kg',  label: Text('kg')),
+            ],
+            selected: {_units.weightUnit},
+            onSelectionChanged: (val) async {
+              setState(() { _units.weightUnit = val.first; });
+              await _units.save();
+            },
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ]),
+        const SizedBox(height: 8),
+
+        // Length unit toggle
+        Row(children: [
+          const Expanded(child: Text('Height', style: TextStyle(fontSize: 15))),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'in', label: Text('in')),
+              ButtonSegment(value: 'cm', label: Text('cm')),
+            ],
+            selected: {_units.lengthUnit},
+            onSelectionChanged: (val) async {
+              setState(() { _units.lengthUnit = val.first; });
+              await _units.save();
+            },
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ]),
+
+        const Divider(height: 32),
 
         // ── Gemini API Key ─────────────────────────────────────────────────
         const Text('Gemini API Key',
@@ -124,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 fontSize: 16, color: Color(0xFF1B5E20))),
         const SizedBox(height: 8),
         const Text(
-            'Health Sprout v1.0\n'
+            'Health Sprout v1.1\n'
             'Powered by Google Gemini & Health Connect\n'
             'Health data is stored locally on your device only.',
             style: TextStyle(color: Colors.grey, fontSize: 13)),

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../db/database.dart';
 import '../health/health_service.dart';
 import '../models/health_metric.dart';
+import '../models/unit_prefs.dart';
 import 'metrics_screen.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
@@ -19,9 +20,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final HealthService  _health  = HealthService();
 
   Map<String, HealthMetric> _latest   = {};
-  bool   _syncing   = false;
-  String _syncStatus = '';
-  int    _totalRows  = 0;
+  bool      _syncing   = false;
+  String    _syncStatus = '';
+  int       _totalRows  = 0;
+  UnitPrefs _units      = UnitPrefs();
 
   @override
   void initState() {
@@ -32,12 +34,37 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadDashboard() async {
     final latest = await _db.getLatestAll();
     final count  = await _db.countRows();
+    final units  = await UnitPrefs.load();
     if (mounted) {
       setState(() {
         _latest    = latest;
         _totalRows = count;
+        _units     = units;
       });
     }
+  }
+
+  Future<void> _showDebugData() async {
+    final dump = await _health.debugHealthData(lookbackHours: 36);
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Debug: Raw Health Data'),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            dump,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _syncHealthConnect() async {
@@ -73,6 +100,11 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.bug_report_outlined),
+            tooltip: 'Debug health data sources',
+            onPressed: _showDebugData,
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const SettingsScreen()))
@@ -106,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1B5E20))),
                 const SizedBox(height: 12),
-                _MetricsGrid(latest: _latest),
+                _MetricsGrid(latest: _latest, units: _units),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.push(context,
@@ -217,19 +249,24 @@ class _SyncCard extends StatelessWidget {
 
 class _MetricsGrid extends StatelessWidget {
   final Map<String, HealthMetric> latest;
+  final UnitPrefs units;
 
-  const _MetricsGrid({required this.latest});
+  const _MetricsGrid({required this.latest, required this.units});
 
   static const _priority = [
     MetricType.weightKg,
+    MetricType.bodyFatPct,
     MetricType.restingHrBpm,
+    MetricType.sleepingHrBpm,
     MetricType.hrvRmssdMs,
     MetricType.sleepDurationHr,
-    MetricType.bodyFatPct,
     MetricType.spo2Pct,
     MetricType.steps,
     MetricType.breathingRate,
     MetricType.bmrKcal,
+    MetricType.workoutDurationMin,
+    MetricType.workoutCalories,
+    MetricType.workoutDistanceM,
   ];
 
   @override
@@ -249,21 +286,24 @@ class _MetricsGrid extends StatelessWidget {
         childAspectRatio:  1.6,
       ),
       itemCount: items.length,
-      itemBuilder: (_, i) => _MetricTile(metric: items[i]),
+      itemBuilder: (_, i) => _MetricTile(metric: items[i], units: units),
     );
   }
 }
 
 class _MetricTile extends StatelessWidget {
   final HealthMetric metric;
-  const _MetricTile({required this.metric});
+  final UnitPrefs units;
+  const _MetricTile({required this.metric, required this.units});
 
   @override
   Widget build(BuildContext context) {
-    final label = MetricType.labels[metric.metric] ?? metric.metric;
-    final val   = metric.value % 1 == 0
-        ? metric.value.toInt().toString()
-        : metric.value.toStringAsFixed(1);
+    final label     = MetricType.labels[metric.metric] ?? metric.metric;
+    final dispVal   = units.displayValue(metric.value, metric.metric);
+    final dispUnit  = units.displayUnit(metric.metric, metric.unit);
+    final val       = dispVal % 1 == 0
+        ? dispVal.toInt().toString()
+        : dispVal.toStringAsFixed(1);
 
     return Card(
       elevation: 1,
@@ -284,7 +324,7 @@ class _MetricTile extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 22, fontWeight: FontWeight.bold,
                         color: Color(0xFF1B5E20))),
-                Text(metric.unit,
+                Text(dispUnit,
                     style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               ],
             ),

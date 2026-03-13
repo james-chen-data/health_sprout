@@ -70,6 +70,12 @@ class MetricType {
   static const String steps           = 'steps';
   static const String activeCalories  = 'active_calories_kcal';
 
+  // Workouts
+  static const String workoutType       = 'workout_type';
+  static const String workoutDurationMin = 'workout_duration_min';
+  static const String workoutCalories   = 'workout_calories_kcal';
+  static const String workoutDistanceM  = 'workout_distance_m';
+
   // Sleep
   static const String sleepDurationHr = 'sleep_duration_hr';
   static const String sleepDeepMin    = 'sleep_deep_min';
@@ -90,7 +96,10 @@ class MetricType {
     spo2Pct:         '%',
     breathingRate:   'brpm',
     steps:           'steps',
-    activeCalories:  'kcal',
+    activeCalories:      'kcal',
+    workoutDurationMin:  'min',
+    workoutCalories:     'kcal',
+    workoutDistanceM:    'm',
     sleepDurationHr: 'hrs',
     sleepDeepMin:    'min',
     sleepRemMin:     'min',
@@ -111,7 +120,10 @@ class MetricType {
     spo2Pct:         'Blood Oxygen (SpO₂)',
     breathingRate:   'Breathing Rate',
     steps:           'Daily Steps',
-    activeCalories:  'Active Calories',
+    activeCalories:      'Active Calories',
+    workoutDurationMin:  'Workout Duration',
+    workoutCalories:     'Workout Calories',
+    workoutDistanceM:    'Workout Distance',
     sleepDurationHr: 'Sleep Duration',
     sleepDeepMin:    'Deep Sleep',
     sleepRemMin:     'REM Sleep',
