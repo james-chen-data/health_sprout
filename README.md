@@ -7,6 +7,93 @@ A personal health advisor powered by Google Gemini (free) with two modules:
 
 ---
 
+## 📱 Flutter Mobile App (`health_sprout_mobile/`)
+
+A Flutter app that syncs health data from **Health Connect (Android)** or **HealthKit (iOS)**, stores it in SQLite, and uses **Gemini AI** for personalised coaching.
+
+### Features
+- Syncs steps, sleep stages, resting HR, HRV, SpO2, weight, body fat, active calories, breathing rate
+- AI advisors (Body Recomposition, Recovery, Nutrition) using your real health history
+- 7/30/90-day trend charts with stats for every metric
+- Unit preferences — lbs/kg and in/cm
+- Smart source filtering — prefers wearable (Fitbit) data over phone sensor / Google Fit
+- Debug view (🐛 icon) to inspect which apps are writing each record
+
+### Quick Start (Android)
+
+**Prerequisites:** Flutter SDK 3.3+, Android device with Health Connect installed
+
+```bash
+git clone https://github.com/james-chen-data/health_sprout.git
+cd health_sprout/health_sprout_mobile
+flutter pub get
+flutter run
+```
+
+1. Tap **⚙️ Settings** → enter your Gemini API key (free at [aistudio.google.com](https://aistudio.google.com/))
+2. Tap **Sync Health Connect Data** and grant permissions
+3. Data syncs up to 6 months of history
+
+**For best accuracy with Fitbit:** In the Health Connect app → Data sources and priority → set **Fitbit** as source #1 for Steps, Sleep, and Activity.
+
+### Porting to iOS (HealthKit)
+
+The `health` package supports both platforms with the same Dart API. Here's what needs attention:
+
+**1. Info.plist — add usage descriptions** (required or Apple will reject the app)
+```xml
+<key>NSHealthShareUsageDescription</key>
+<string>Health Sprout reads your health data to provide personalised coaching.</string>
+<key>NSHealthUpdateUsageDescription</key>
+<string>Health Sprout does not write health data.</string>
+```
+
+**2. Xcode — enable HealthKit capability**
+- Open `ios/Runner.xcworkspace` in Xcode
+- Runner target → Signing & Capabilities → **+ Capability → HealthKit**
+
+**3. Re-enable WORKOUT type** (disabled on Android due to a SecurityException bug on Pixel + Android 16)
+
+In `health_service.dart`, add `HealthDataType.WORKOUT` to the `_types` list.
+
+**4. Update source filtering** for Apple Watch users
+
+In `health_service.dart`, update `_isFitbit()` → rename to `_isPreferredWearable()` and add:
+```dart
+name.contains('apple watch') || id.contains('com.apple.health')
+```
+
+**5. No AndroidManifest needed** — iOS permissions are handled entirely at runtime via `requestAuthorization()`.
+
+### Project Structure
+```
+health_sprout_mobile/lib/
+├── main.dart
+├── ai/gemini_service.dart       # Gemini 2.5 Flash API
+├── db/database.dart             # SQLite schema & queries
+├── health/health_service.dart   # Health Connect / HealthKit sync
+├── models/
+│   ├── health_metric.dart       # Metric type constants & labels
+│   └── unit_prefs.dart          # Unit conversion (kg↔lbs, cm↔in)
+└── screens/
+    ├── home_screen.dart         # Dashboard
+    ├── metrics_screen.dart      # Trend charts
+    ├── chat_screen.dart         # AI coach chat
+    └── settings_screen.dart     # API key & preferences
+```
+
+### Known Limitations
+
+| Issue | Detail |
+|---|---|
+| Resting HR differs from Fitbit app | Fitbit uses a proprietary algorithm; Health Connect provides the raw measured value |
+| Sleep duration slightly lower than Fitbit app | Fitbit's internal "Time Asleep" includes data not fully exposed via Health Connect |
+| Step sync lag (~100 steps) | Fitbit syncs to Health Connect periodically, not in real-time |
+| WORKOUT disabled on Android | SecurityException on Pixel + Android 16 despite permissions granted; works fine on iOS |
+| HEART_RATE excluded | Per-second data over 6 months causes OutOfMemoryError on both platforms; use resting HR + HRV instead |
+
+---
+
 ## Modules
 
 ### 🌱 Sprout & Microgreens Advisor
